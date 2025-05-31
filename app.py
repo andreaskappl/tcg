@@ -1,100 +1,4 @@
-# import streamlit as st
-# import pandas as pd
-# from PIL import Image
-# import base64
-# from io import BytesIO
 
-# # Funktion, um lokale PNG in base64 Data-URL zu verwandeln
-# def img_to_base64(img_path):
-#     img = Image.open(img_path)
-#     buffered = BytesIO()
-#     img.save(buffered, format="PNG")
-#     img_b64 = base64.b64encode(buffered.getvalue()).decode()
-#     return f"data:image/png;base64,{img_b64}"
-
-# # CSS für den Kasten mit Bild links, Text rechts
-# st.markdown("""
-#     <style>
-#     .card-box {
-#         border: 1px solid #ddd;
-#         padding: 10px;
-#         border-radius: 5px;
-#         background-color: #f9f9f9;
-#         display: flex;
-#         align-items: center;
-#         margin-bottom: 10px;
-#     }
-#     .card-text {
-#         margin-left: 15px;
-#     }
-#     .card-row {
-#         display: flex;
-#         gap: 15px;
-#         margin-bottom: 25px;
-#     }
-#     </style>
-# """, unsafe_allow_html=True)
-
-# # Beispiel: Daten laden (hier anpassen)
-# df = pd.read_csv("overview_cards.csv")
-
-# # Sidebar: Filteroptionen (dein bisheriger Filtercode)
-# st.sidebar.header("🔍 Filter")
-
-# sets = df["set_name"].unique()
-# selected_set = st.sidebar.selectbox("Set auswählen", ["Alle"] + list(sets))
-# if selected_set != "Alle":
-#     df = df[df["set_name"] == selected_set]
-
-# rarities = df["rarity"].dropna().unique()
-# selected_rarities = st.sidebar.multiselect("Seltenheiten auswählen", sorted(rarities))
-# if selected_rarities:
-#     df = df[df["rarity"].isin(selected_rarities)]
-
-# price_min, price_max = st.sidebar.slider("Preisbereich (€)", 
-#                                          min_value=float(df["price"].min()), 
-#                                          max_value=float(df["price"].max()), 
-#                                          value=(float(df["price"].min()), float(df["price"].max())))
-# df = df[(df["price"] >= price_min) & (df["price"] <= price_max)]
-
-# id_min, id_max = st.sidebar.slider("Pokemon ID", 
-#                                    min_value=float(df["pokemon_id"].min()), 
-#                                    max_value=float(df["pokemon_id"].max()), 
-#                                    value=(float(df["pokemon_id"].min()), float(df["pokemon_id"].max())))
-# df = df[(df["pokemon_id"] >= id_min) & (df["pokemon_id"] <= id_max)]
-
-# st.markdown(f"### Zeige {len(df)} Karten")
-
-# gruppen = df.groupby("pokemon_name")
-
-# for pokemon_name, gruppe in gruppen:
-#     st.markdown(f"## {pokemon_name}")
-    
-#     # Karten in Reihen mit je 3 Karten
-#     gruppe = gruppe.reset_index(drop=True)
-#     for start in range(0, len(gruppe), 3):
-#         cards_subset = gruppe.iloc[start:start+3]
-        
-#         # HTML für eine Karten-Reihe
-#         cards_html = '<div class="card-row">'
-#         for _, row in cards_subset.iterrows():
-#             img_b64 = img_to_base64(row["img"])  # img ist der Pfad zum PNG
-            
-#             card_html = f"""
-#             <div class="card-box" style="flex:1; min-width:0;">
-#                 <img src="{img_b64}" width="150" />
-#                 <div class="card-text">
-#                     <b>{row['pokemon_name']}</b><br>
-#                     <i>{row['set_name']} #{int(row['card_number'])}/{int(row['set_size'])}</i><br>
-#                     💰 <b>{row['price']} €</b><br>
-#                     🌟 <i>{row['rarity']}</i>
-#                 </div>
-#             </div>
-#             """
-#             cards_html += card_html
-#         cards_html += '</div>'
-        
-#         st.markdown(cards_html, unsafe_allow_html=True)
 
 import streamlit as st
 import pandas as pd
@@ -192,6 +96,11 @@ except FileNotFoundError:
 # Sidebar: Filteroptionen (dein bisheriger Filtercode)
 st.sidebar.header("🔍 Filter")
 
+generations = df["generation"].unique()
+selected_generation = st.sidebar.selectbox("Generation auswählen", ["Alle"] + list(generations))
+if selected_generation != "Alle":
+    df = df[df["generation"] == selected_generation]
+
 sets = df["set_name"].unique()
 selected_set = st.sidebar.selectbox("Set auswählen", ["Alle"] + list(sets))
 if selected_set != "Alle":
@@ -207,26 +116,52 @@ df['price'] = pd.to_numeric(df['price'], errors='coerce')
 df['pokemon_id'] = pd.to_numeric(df['pokemon_id'], errors='coerce')
 df.dropna(subset=['price', 'pokemon_id'], inplace=True)
 
+# --- Preisbereich ---
+st.sidebar.subheader("💰 Preisbereich (€)")
 
-price_min_val = float(df["price"].min()) if not df["price"].empty else 0.0
-price_max_val = float(df["price"].max()) if not df["price"].empty else 100.0
+price_min_val = int(df["price"].min()) if not df["price"].empty else 0
+price_max_val = int(df["price"].max()) if not df["price"].empty else 1000
 
-price_min, price_max = st.sidebar.slider("Preisbereich (€)",
-                                         min_value=price_min_val,
-                                         max_value=price_max_val,
-                                         value=(price_min_val, price_max_val))
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    price_min = st.number_input("Min €", min_value=price_min_val, max_value=price_max_val,
+                                value=price_min_val, step=1, key="price_min")
+with col2:
+    price_max = st.number_input("Max €", min_value=price_min_val, max_value=price_max_val,
+                                value=price_max_val, step=1, key="price_max")
+
 df = df[(df["price"] >= price_min) & (df["price"] <= price_max)]
 
-id_min_val = float(df["pokemon_id"].min()) if not df["pokemon_id"].empty else 0.0
-id_max_val = float(df["pokemon_id"].max()) if not df["pokemon_id"].empty else 1000.0
+# --- Pokémon ID Bereich ---
+st.sidebar.subheader("🔢 Pokémon ID")
 
-id_min, id_max = st.sidebar.slider("Pokemon ID",
-                                     min_value=id_min_val,
-                                     max_value=id_max_val,
-                                     value=(id_min_val, id_max_val))
+id_min_val = int(df["pokemon_id"].min()) if not df["pokemon_id"].empty else 0
+id_max_val = int(df["pokemon_id"].max()) if not df["pokemon_id"].empty else 999
+
+col3, col4 = st.sidebar.columns(2)
+with col3:
+    id_min = st.number_input("Min ID", min_value=id_min_val, max_value=id_max_val,
+                             value=id_min_val, step=1, key="id_min")
+with col4:
+    id_max = st.number_input("Max ID", min_value=id_min_val, max_value=id_max_val,
+                             value=id_max_val, step=1, key="id_max")
+
 df = df[(df["pokemon_id"] >= id_min) & (df["pokemon_id"] <= id_max)]
+# Filter anwenden
 
-st.markdown(f"### Zeige {len(df)} Karten")
+# --- Statistiken in der Sidebar anzeigen ---
+st.sidebar.markdown("### 📊 Zusammenfassung")
+
+anzahl_pokemon = df["pokemon_name"].nunique()
+gesamtwert = df["price"].sum()
+gruppen = df.groupby("pokemon_name")
+min_pro_gruppe = gruppen["price"].min().sum()
+max_pro_gruppe = gruppen["price"].max().sum()
+
+st.sidebar.markdown(f"**Anzahl der Karten:** {len(df)}")
+st.sidebar.markdown(f"**Abgedeckte Pokémon:** {anzahl_pokemon}")
+st.sidebar.markdown(f"**Gesamtwert aller Karten:** {gesamtwert:.0f}€")
+st.sidebar.markdown(f"**Range (1 Karte / Pokemon):** {min_pro_gruppe:.0f}€ - {max_pro_gruppe:.0f}€")
 
 gruppen = df.groupby("pokemon_name")
 
@@ -242,7 +177,7 @@ for pokemon_name, gruppe in gruppen:
 
         # Ensure card_number and set_size are integers before formatting
         card_number_str = str(int(row['card_number'])) if pd.notna(row['card_number']) else ''
-        set_size_str = str(int(row['set_size'])) if pd.notna(row['set_size']) else ''
+        set_size_str = str((row['set_size'])) if pd.notna(row['set_size']) else ''
         price_str = f"{row['price']:.1f}" if pd.notna(row['price']) else 'N/A'
         rarity_str = row['rarity'] if pd.notna(row['rarity']) else 'Unknown'
 
