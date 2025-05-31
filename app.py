@@ -97,12 +97,12 @@ except FileNotFoundError:
 st.sidebar.header("🔍 Filter")
 
 generations = df["generation"].unique()
-selected_generation = st.sidebar.selectbox("Generation auswählen", ["Alle"] + list(generations))
+selected_generation = st.sidebar.selectbox("Generation auswählen", ["Alle"] + list(generations), sorted(generations))
 if selected_generation != "Alle":
     df = df[df["generation"] == selected_generation]
 
 sets = df["set_name"].unique()
-selected_set = st.sidebar.selectbox("Set auswählen", ["Alle"] + list(sets))
+selected_set = st.sidebar.selectbox("Set auswählen", ["Alle"] + list(sets), sorted(sets))
 if selected_set != "Alle":
     df = df[df["set_name"] == selected_set]
 
@@ -117,7 +117,7 @@ df['pokemon_id'] = pd.to_numeric(df['pokemon_id'], errors='coerce')
 df.dropna(subset=['price', 'pokemon_id'], inplace=True)
 
 # --- Preisbereich ---
-st.sidebar.subheader("💰 Preisbereich (€)")
+st.sidebar.subheader("Preisbereich (€)")
 
 price_min_val = int(df["price"].min()) if not df["price"].empty else 0
 price_max_val = int(df["price"].max()) if not df["price"].empty else 1000
@@ -133,7 +133,7 @@ with col2:
 df = df[(df["price"] >= price_min) & (df["price"] <= price_max)]
 
 # --- Pokémon ID Bereich ---
-st.sidebar.subheader("🔢 Pokémon ID")
+st.sidebar.subheader("🔢Pokémon ID")
 
 id_min_val = int(df["pokemon_id"].min()) if not df["pokemon_id"].empty else 0
 id_max_val = int(df["pokemon_id"].max()) if not df["pokemon_id"].empty else 999
