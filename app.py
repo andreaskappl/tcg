@@ -96,15 +96,15 @@ except FileNotFoundError:
 # Sidebar: Filteroptionen (dein bisheriger Filtercode)
 st.sidebar.header("🔍 Filter")
 
-generations = df["generation"].unique()
-selected_generation = st.sidebar.selectbox("Generation auswählen", ["Alle"] + list(generations), sorted(generations))
-if selected_generation != "Alle":
-    df = df[df["generation"] == selected_generation]
+generations = df["generation"].dropna().unique()
+selected_generation = st.sidebar.multiselect("Generation auswählen", sorted(generations))
+if selected_generation:
+    df = df[df["generation"].isin(selected_generation)]
 
-sets = df["set_name"].unique()
-selected_set = st.sidebar.selectbox("Set auswählen", ["Alle"] + list(sets), sorted(sets))
-if selected_set != "Alle":
-    df = df[df["set_name"] == selected_set]
+sets = df["set_name"].dropna().unique()
+selected_set = st.sidebar.multiselect("Set auswählen", sorted(sets))
+if selected_set:
+    df = df[df["set_name"].isin(selected_set)]
 
 rarities = df["rarity"].dropna().unique()
 selected_rarities = st.sidebar.multiselect("Seltenheiten auswählen", sorted(rarities))
