@@ -31,34 +31,40 @@ def img_to_base64(img_path):
 # CSS für den Kasten mit Bild links, Text rechts
 st.markdown("""
     <style>
+    /* Light Mode Styles */
     .card-box {
         border: 1px solid #ddd;
         padding: 10px;
         border-radius: 5px;
         background-color: #f9f9f9;
-        display: flex; /* Keep flex for image and text alignment within the card */
+        display: flex;
         align-items: center;
-        margin-bottom: 15px; /* Add some space between stacked cards */
-        width: 100%; /* Make each card take full width of its container */
-        box-sizing: border-box; /* Include padding and border in the element's total width */
+        margin-bottom: 15px;
+        width: 100%;
+        box-sizing: border-box;
+        color: #000000;  /* Textfarbe für helles Theme */
     }
     .card-text {
         margin-left: 15px;
-        flex-grow: 1; /* Allow text to grow and take available space */
+        flex-grow: 1;
     }
-    /* The .card-row CSS is no longer needed as cards are stacked */
-    /* .card-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 15px;
-        margin-bottom: 25px;
-        justify-content: flex-start;
-    } */
     .card-box img {
-        max-width: 120px; /* Adjust max width of image within the card */
+        max-width: 120px;
         height: auto;
-        object-fit: contain; /* Ensure image fits without distortion */
-        margin-right: 10px; /* Space between image and text */
+        object-fit: contain;
+        margin-right: 10px;
+    }
+
+    /* Dark Mode Styles (per media query) */
+    @media (prefers-color-scheme: dark) {
+        .card-box {
+            background-color: #2c2c2c !important;  /* dunkle Box */
+            border: 1px solid #555;
+            color: #ffffff !important;  /* helle Schrift */
+        }
+        .card-text {
+            color: #ffffff !important;
+        }
     }
     </style>
 """, unsafe_allow_html=True)
