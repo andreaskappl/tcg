@@ -168,6 +168,15 @@ st.sidebar.markdown(f"**Anzahl der Karten:** {len(df)}")
 st.sidebar.markdown(f"**Abgedeckte Pokémon:** {anzahl_pokemon}")
 st.sidebar.markdown(f"**Gesamtwert aller Karten:** {gesamtwert:.0f}€")
 st.sidebar.markdown(f"**Range (1 Karte / Pokemon):** {min_pro_gruppe:.0f}€ - {max_pro_gruppe:.0f}€")
+if 'update' in df.columns and not df['update'].isnull().all():
+    try:
+        # Datum korrekt als Datetime interpretieren
+        df['update_parsed'] = pd.to_datetime(df['update'], format='%d.%m.%Y', errors='coerce')
+        latest_update = df['update_parsed'].max()
+        if pd.notna(latest_update):
+            st.sidebar.markdown(f"**Letztes Preisupdate:** {latest_update.strftime('%d.%m.%Y')}")
+    except Exception as e:
+        st.sidebar.warning(f"Fehler beim Ermitteln des letzten Updates: {e}")
 
 gruppen = df.groupby("pokemon_name")
 
@@ -186,6 +195,7 @@ for pokemon_name, gruppe in gruppen:
         set_size_str = str((row['set_size'])) if pd.notna(row['set_size']) else ''
         price_str = f"{row['price']:.1f}" if pd.notna(row['price']) else 'N/A'
         rarity_str = row['rarity'] if pd.notna(row['rarity']) else 'Unknown'
+        update_str = row['update'] if pd.notna(row['update']) else '-'
 
         card_html = f"""
         <div class="card-box">
@@ -193,8 +203,8 @@ for pokemon_name, gruppe in gruppen:
             <div class="card-text">
                 <b>{row['pokemon_name']}</b><br>
                 <i>{row['set_name']} #{card_number_str}/{set_size_str}</i><br>
-                💰 <b>{price_str} €</b><br>
-                🌟 <i>{rarity_str}</i>
+                💰 <b>{price_str}€</b><span> (vom {update_str})</span><br>
+                🌟 <span>{rarity_str}</span>
             </div>
         </div>
         """
