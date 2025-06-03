@@ -54,6 +54,10 @@ st.markdown("""
         object-fit: contain;
         margin-right: 10px;
     }
+    .owned {
+        background-color: #e6ffed !important;
+        border: 2px solid #4CAF50 !important;
+    }   
 
     /* Dark Mode Styles (per media query) */
     @media (prefers-color-scheme: dark) {
@@ -101,6 +105,19 @@ except FileNotFoundError:
 
 # Sidebar: Filteroptionen (dein bisheriger Filtercode)
 st.sidebar.header("🔍 Filter")
+
+
+search_options = sorted(df['pokemon_name'].unique())
+search_input = st.sidebar.selectbox(
+    "🔍 Pokémon suchen",
+    options=[""] + search_options,
+    index=0,
+    help="Tippe eine Nummer oder einen Namen, z. B. 'Zoroark' oder '0571'"
+)
+
+if search_input:
+    df = df[df['pokemon_name'] == search_input]
+
 
 generations = df["generation"].dropna().unique()
 selected_generation = st.sidebar.multiselect("Generation auswählen", sorted(generations))
@@ -177,6 +194,19 @@ if 'update' in df.columns and not df['update'].isnull().all():
             st.sidebar.markdown(f"**Letztes Preisupdate:** {latest_update.strftime('%d.%m.%Y')}")
     except Exception as e:
         st.sidebar.warning(f"Fehler beim Ermitteln des letzten Updates: {e}")
+
+
+
+# --- Besitz-Tracking: Session-Variable initialisieren ---
+if 'owned_cards' not in st.session_state:
+    st.session_state['owned_cards'] = set()
+
+# --- Funktion zum Setzen/Zurücknehmen einer Karte als "besessen" ---
+def toggle_owned(card_id):
+    if card_id in st.session_state['owned_cards']:
+        st.session_state['owned_cards'].remove(card_id)
+    else:
+        st.session_state['owned_cards'].add(card_id)
 
 gruppen = df.groupby("pokemon_name")
 
