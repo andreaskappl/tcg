@@ -106,7 +106,6 @@ except FileNotFoundError:
 # Sidebar: Filteroptionen (dein bisheriger Filtercode)
 st.sidebar.header("🔍 Filter")
 
-
 search_options = sorted(df['pokemon_name'].unique())
 search_input = st.sidebar.selectbox(
     "🔍 Pokémon suchen",
@@ -123,6 +122,7 @@ generations = df["generation"].dropna().unique()
 selected_generation = st.sidebar.multiselect("Generation auswählen", sorted(generations))
 if selected_generation:
     df = df[df["generation"].isin(selected_generation)]
+
 
 sets = df["set_name"].dropna().unique()
 selected_set = st.sidebar.multiselect("Set auswählen", sorted(sets))
@@ -153,7 +153,7 @@ with col2:
     price_max = st.number_input("Max €", min_value=price_min_val, max_value=price_max_val,
                                 value=price_max_val, step=1, key="price_max")
 
-df = df[(df["price"] >= price_min) & (df["price"] <= price_max)]
+df = df[(df["price"] >= price_min) & (df["price"] <= price_max+1)]
 
 # --- Pokémon ID Bereich ---
 st.sidebar.subheader("🔢Pokémon ID")
@@ -170,6 +170,9 @@ with col4:
                              value=id_max_val, step=1, key="id_max")
 
 df = df[(df["pokemon_id"] >= id_min) & (df["pokemon_id"] <= id_max)]
+
+
+
 # Filter anwenden
 
 # --- Statistiken in der Sidebar anzeigen ---
@@ -195,20 +198,8 @@ if 'update' in df.columns and not df['update'].isnull().all():
     except Exception as e:
         st.sidebar.warning(f"Fehler beim Ermitteln des letzten Updates: {e}")
 
-
-
-# --- Besitz-Tracking: Session-Variable initialisieren ---
-if 'owned_cards' not in st.session_state:
-    st.session_state['owned_cards'] = set()
-
-# --- Funktion zum Setzen/Zurücknehmen einer Karte als "besessen" ---
-def toggle_owned(card_id):
-    if card_id in st.session_state['owned_cards']:
-        st.session_state['owned_cards'].remove(card_id)
-    else:
-        st.session_state['owned_cards'].add(card_id)
-
 gruppen = df.groupby("pokemon_name")
+
 
 for pokemon_name, gruppe in gruppen:
     st.markdown(f"## {pokemon_name}")
