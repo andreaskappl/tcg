@@ -6,6 +6,7 @@ from PIL import Image
 import base64
 from io import BytesIO
 import os
+import math
 
 # Funktion, um lokale PNG in base64 Data-URL zu verwandeln
 def img_to_base64(img_path):
@@ -142,8 +143,9 @@ df.dropna(subset=['price', 'pokemon_id'], inplace=True)
 # --- Preisbereich ---
 st.sidebar.subheader("Preisbereich (€)")
 
-price_min_val = int(df["price"].min()) if not df["price"].empty else 0
-price_max_val = int(df["price"].max()) if not df["price"].empty else 1000
+price_min_val = int(math.floor(df["price"].min())) if not df["price"].empty else 0
+price_max_val = int(math.ceil(df["price"].max())) if not df["price"].empty else 1000
+
 
 col1, col2 = st.sidebar.columns(2)
 with col1:
@@ -153,7 +155,7 @@ with col2:
     price_max = st.number_input("Max €", min_value=price_min_val, max_value=price_max_val,
                                 value=price_max_val, step=1, key="price_max")
 
-df = df[(df["price"] >= price_min) & (df["price"] <= price_max+1)]
+df = df[(df["price"] >= price_min) & (df["price"] <= price_max)]
 
 # --- Pokémon ID Bereich ---
 st.sidebar.subheader("🔢Pokémon ID")
