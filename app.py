@@ -49,7 +49,7 @@ def save_besitz_to_gsheet():
 
     worksheet.clear()
     worksheet.update([['user', 'karte_id']] + data)
-    st.success("Besitzdaten erfolgreich gespeichert!")
+    # st.success("Besitzdaten erfolgreich gespeichert!")
 
 # Filter zurücksetzen bei Benutzerwechsel
 def reset_filter_session_state(df):
@@ -135,6 +135,45 @@ st.markdown("""
         background-color: #e6ffed !important;
         border: 2px solid #4CAF50 !important;
     }
+    .custom-button {
+        border-radius: 5px;
+        padding: 8px 16px;
+        font-size: 14px;
+        cursor: pointer;
+        width: 100%;
+        text-align: center;
+        border: 1px solid #444;
+        background-color: #f5f5f5;
+        color: #000;
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .custom-button:hover {
+        background-color: #e0e0e0;
+        border-color: #000;
+        color: #000;
+    }
+
+    /* Streamlit-Standard-Button selektieren */
+    button.css-19rxjzo.ef3psqc12 {  /* <-- Standardklasse von st.button() */
+        border-radius: 5px;
+        padding: 6px 12px;
+        font-size: 13px;
+        text-align: left;
+        border: 1px solid #444;
+        background-color: #f5f5f5;
+        color: #000;
+        margin-top: -6px;
+        margin-bottom: 12px;
+        width: 100%;
+    }
+
+    button.css-19rxjzo.ef3psqc12:hover {
+        background-color: #e0e0e0;
+        border-color: #000;
+        color: #000;
+    }
+            
     @media (prefers-color-scheme: dark) {
         .card-box {
             background-color: #2c2c2c !important;
@@ -157,7 +196,7 @@ if "users" not in st.session_state or "besitz" not in st.session_state:
     st.session_state["besitz"] = besitz
 
 if "selected_user" not in st.session_state:
-    st.session_state["selected_user"] = st.session_state["users"][0]
+    st.session_state["selected_user"] = ""
 
 if "adding_user" not in st.session_state:
     st.session_state["adding_user"] = False
@@ -195,8 +234,15 @@ df["karte_id"] = df["set_name"].astype(str) + "_" + df["card_number"].astype(str
 
 # Benutzerverwaltung
 st.sidebar.subheader("👤 Benutzer")
-user_options = st.session_state["users"] + ["➕ Neuen Benutzer anlegen..."]
-selected = st.sidebar.selectbox("Benutzer wählen", user_options, index=user_options.index(st.session_state["selected_user"]), key="benutzerwahl")
+user_options = [""] + st.session_state["users"] + ["➕ Neuen Benutzer anlegen..."]
+user_labels = {"": "– Kein Benutzer ausgewählt –", "➕ Neuen Benutzer anlegen...": "➕ Neuen Benutzer anlegen..."}
+
+selected = st.sidebar.selectbox(
+    "Benutzer wählen",
+    options=user_options,
+    format_func=lambda x: user_labels.get(x, x),
+    key="benutzerwahl"
+)
 
 if selected == "➕ Neuen Benutzer anlegen...":
     st.session_state["adding_user"] = True
@@ -321,21 +367,6 @@ if 'update' in df.columns and not df['update'].isnull().all():
     except Exception as e:
         st.sidebar.warning(f"Fehler beim Ermitteln des letzten Updates: {e}")
 
-st.sidebar.markdown("---")
-
-# Besitz-Aktion Buttons
-st.sidebar.markdown("### 🎴 Besitz-Aktion")
-if st.sidebar.button("🟢 Gefilterte Karten hinzufügen"):
-    neue_karten = df["karte_id"].tolist()
-    st.session_state["besitz"][user] = list(set(st.session_state["besitz"].get(user, [])).union(neue_karten))
-    save_besitz_to_gsheet()
-    st.rerun()
-if st.sidebar.button("🔴 Gefilterte Karten entfernen"):
-    entferne = set(df["karte_id"].tolist())
-    st.session_state["besitz"][user] = list(set(st.session_state["besitz"][user]) - entferne)
-    save_besitz_to_gsheet()
-    st.rerun()
-
 # Gruppierung und Anzeige der Karten
 for pokemon_name, gruppe in df.sort_values(by=["pokemon_name", "card_number"]).groupby("pokemon_name"):
     st.markdown(f"## {pokemon_name}")
@@ -363,3 +394,15 @@ for pokemon_name, gruppe in df.sort_values(by=["pokemon_name", "card_number"]).g
         </div>
         """
         st.markdown(card_html, unsafe_allow_html=True)
+
+        if user and user.strip() and user in st.session_state["besitz"]:
+            button_id = f"btn_{karte_id}"
+            button_text = "❌ Aus Kollektion entfernen" if owned else "➕ Zur Kollektion hinzufügen"
+
+            if st.button(button_text, key=f"button_{karte_id}"):
+                if owned:
+                    st.session_state["besitz"][user].remove(karte_id)
+                else:
+                    st.session_state["besitz"][user].append(karte_id)
+                save_besitz_to_gsheet()
+                st.rerun()
