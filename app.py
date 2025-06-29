@@ -1,5 +1,3 @@
-
-
 import streamlit as st
 import pandas as pd
 from PIL import Image
@@ -7,21 +5,19 @@ import base64
 from io import BytesIO
 import os
 import math
+from google.oauth2.service_account import Credentials
+import gspread
 
 # Funktion, um lokale PNG in base64 Data-URL zu verwandeln
 def img_to_base64(img_path):
     try:
-        # Check if the file exists before opening
         if not os.path.exists(img_path):
             st.warning(f"Bild nicht gefunden: {img_path}. Platzhalter wird verwendet.")
-            # Return a base64 of a placeholder image (1x1 transparent PNG)
             return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-        
         img = Image.open(img_path)
         buffered = BytesIO()
-        # Ensure the image is in a format that can be saved as PNG
         if img.mode != 'RGB' and img.mode != 'RGBA':
-            img = img.convert('RGBA') # Convert to RGBA for consistency
+            img = img.convert('RGBA')
         img.save(buffered, format="PNG")
         img_b64 = base64.b64encode(buffered.getvalue()).decode()
         return f"data:image/png;base64,{img_b64}"
@@ -29,10 +25,90 @@ def img_to_base64(img_path):
         st.error(f"Fehler beim Laden oder Konvertieren des Bildes {img_path}: {e}")
         return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
 
-# CSS für den Kasten mit Bild links, Text rechts
+def load_besitz_from_gsheet():
+    try:
+        records = worksheet.get_all_records()
+        if not records:
+            return ["andi"], {"andi": []}
+
+        df_sheet = pd.DataFrame(records)
+
+        users = df_sheet['user'].unique().tolist()
+        besitz = {user: df_sheet[df_sheet['user'] == user]['karte_id'].tolist() for user in users}
+
+        return users, besitz
+    except Exception as e:
+        st.warning(f"Fehler beim Laden aus Google Sheet: {e}")
+        return ["andi"], {"andi": []}
+
+def save_besitz_to_gsheet():
+    data = []
+    for user, cards in st.session_state["besitz"].items():
+        for karte_id in cards:
+            data.append([user, karte_id])
+
+    worksheet.clear()
+    worksheet.update([['user', 'karte_id']] + data)
+    st.success("Besitzdaten erfolgreich gespeichert!")
+
+# Filter zurücksetzen bei Benutzerwechsel
+def reset_filter_session_state(df):
+
+    if df.empty or df['pokemon_id'].dropna().empty:
+        id_min, id_max = 0, 0
+    else:
+        id_min, id_max = int(df['pokemon_id'].min()), int(df['pokemon_id'].max())
+
+    if df.empty or df['price'].dropna().empty:
+        price_min, price_max = 0, 0
+    else:
+        price_min, price_max = math.floor(df['price'].min()), math.ceil(df['price'].max())
+
+    reset_defaults = {
+        "price_min": price_min,
+        "price_max": price_max,
+        "id_min": id_min,
+        "id_max": id_max,
+        "Besitzfilter": "Alle Karten",
+        "pokemon_name": "",
+        "multiselect_set": [],
+        "multiselect_generation": [],
+        "multiselect_rarity": []
+    }
+
+    for key, value in reset_defaults.items():
+        st.session_state[key] = value
+
+# Google Sheets Setup
+# Erst versuchen, aus Environment-Variable zu lesen (z. B. bei Deployment)
+service_account_info = os.environ.get("GCP_SERVICE_ACCOUNT")
+
+if service_account_info:
+    # Temporär schreiben
+    with open("service_account.json", "w") as f:
+        f.write(service_account_info)
+    print("🔐 Service Account aus Umgebungsvariable geladen.")
+elif os.path.exists("service_account.json"):
+    # Lokale Datei ist vorhanden
+    print("📁 Lokale service_account.json wird verwendet.")
+else:
+    raise FileNotFoundError("❌ Kein gültiger Service Account gefunden.")
+
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+credentials = Credentials.from_service_account_file("service_account.json", scopes=scope)
+client = gspread.authorize(credentials)
+
+# Lösche temporäre Datei
+if service_account_info:
+    os.remove("service_account.json")
+
+sheet_url = "https://docs.google.com/spreadsheets/d/16k-71_UMxxGVtQSVb4VSyEczJcmj_ldoC5iJG69-zFY/edit"
+spreadsheet = client.open_by_url(sheet_url)
+worksheet = spreadsheet.sheet1
+
+# CSS Styling
 st.markdown("""
     <style>
-    /* Light Mode Styles */
     .card-box {
         border: 1px solid #ddd;
         padding: 10px;
@@ -43,7 +119,7 @@ st.markdown("""
         margin-bottom: 15px;
         width: 100%;
         box-sizing: border-box;
-        color: #000000;  /* Textfarbe für helles Theme */
+        color: #000000;
     }
     .card-text {
         margin-left: 15px;
@@ -58,14 +134,12 @@ st.markdown("""
     .owned {
         background-color: #e6ffed !important;
         border: 2px solid #4CAF50 !important;
-    }   
-
-    /* Dark Mode Styles (per media query) */
+    }
     @media (prefers-color-scheme: dark) {
         .card-box {
-            background-color: #2c2c2c !important;  /* dunkle Box */
+            background-color: #2c2c2c !important;
             border: 1px solid #555;
-            color: #ffffff !important;  /* helle Schrift */
+            color: #ffffff !important;
         }
         .card-text {
             color: #ffffff !important;
@@ -74,108 +148,156 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Beispiel: Daten laden (hier anpassen)
-# Erstelle eine Dummy-CSV-Datei, falls sie nicht existiert, um den Code testbar zu machen
+
+
+# Session State Initialisierung
+if "users" not in st.session_state or "besitz" not in st.session_state:
+    users, besitz = load_besitz_from_gsheet()
+    st.session_state["users"] = users
+    st.session_state["besitz"] = besitz
+
+if "selected_user" not in st.session_state:
+    st.session_state["selected_user"] = st.session_state["users"][0]
+
+if "adding_user" not in st.session_state:
+    st.session_state["adding_user"] = False
+
+if "last_user" not in st.session_state:
+    st.session_state["last_user"] = st.session_state["selected_user"]
+
+# Daten einlesen
 try:
     df = pd.read_csv("overview_cards.csv")
 except FileNotFoundError:
-    st.error("overview_cards.csv nicht gefunden. Erstelle eine Dummy-Datei.")
     dummy_data = {
-        'pokemon_id': [1, 1, 1, 1, 2, 2, 3],
-        'pokemon_name': ['Bisasam', 'Bisasam', 'Bisasam', 'Bisasam', 'Bisaknosp', 'Bisaknosp', 'Glurak'],
-        'set_name': ['Base Set', 'Jungle', 'Fossil', 'Base Set', 'Base Set', 'Jungle', 'Base Set'],
-        'card_number': [1, 2, 3, 4, 5, 6, 7],
-        'set_size': [102, 64, 62, 102, 102, 64, 102],
-        'price': [40.9, 35.5, 20.0, 50.0, 33.0, 28.0, 150.0],
-        'rarity': ['Rare', 'Uncommon', 'Common', 'Rare Holo', 'Rare', 'Uncommon', 'Rare Holo'],
-        'img': ['./images/bisasam_1.png', './images/bisasam_2.png', './images/bisasam_3.png', './images/bisasam_4.png', './images/bisaknosp_1.png', './images/bisaknosp_2.png', './images/glurak_1.png']
+        'pokemon_id': [1, 1, 2],
+        'pokemon_name': ['Bisasam', 'Bisasam', 'Glurak'],
+        'set_name': ['Base Set', 'Jungle', 'Base Set'],
+        'card_number': [1, 2, 3],
+        'set_size': [102, 64, 102],
+        'price': [40.9, 35.5, 150.0],
+        'rarity': ['Rare', 'Uncommon', 'Rare Holo'],
+        'img': ['./images/bisasam_1.png', './images/bisasam_2.png', './images/glurak_1.png']
     }
     df = pd.DataFrame(dummy_data)
-    # Erstelle Dummy-Bilder für Testzwecke
     os.makedirs("./images", exist_ok=True)
-    # Create simple dummy PNG files
-    from PIL import Image, ImageDraw
     for img_path in df['img'].unique():
         if not os.path.exists(img_path):
-            img = Image.new('RGB', (150, 200), color = 'lightgray')
+            img = Image.new('RGB', (150, 200), color='lightgray')
             d = ImageDraw.Draw(img)
-            d.text((10,10), os.path.basename(img_path), fill=(0,0,0))
+            d.text((10, 10), os.path.basename(img_path), fill=(0, 0, 0))
             img.save(img_path)
     df.to_csv("overview_cards.csv", index=False)
 
+# Besitz ID vorbereiten
+original_df = df.copy()
+df["karte_id"] = df["set_name"].astype(str) + "_" + df["card_number"].astype(str)
 
-# Sidebar: Filteroptionen (dein bisheriger Filtercode)
-st.sidebar.header("🔍 Filter")
+# Benutzerverwaltung
+st.sidebar.subheader("👤 Benutzer")
+user_options = st.session_state["users"] + ["➕ Neuen Benutzer anlegen..."]
+selected = st.sidebar.selectbox("Benutzer wählen", user_options, index=user_options.index(st.session_state["selected_user"]), key="benutzerwahl")
 
-search_options = sorted(df['pokemon_name'].unique())
-search_input = st.sidebar.selectbox(
-    "🔍 Pokémon suchen",
-    options=[""] + search_options,
-    index=0,
-    help="Tippe eine Nummer oder einen Namen, z. B. 'Zoroark' oder '0571'"
+if selected == "➕ Neuen Benutzer anlegen...":
+    st.session_state["adding_user"] = True
+    reset_filter_session_state(df)
+
+elif selected != st.session_state["selected_user"]:
+    st.session_state["selected_user"] = selected
+    reset_filter_session_state(df)
+    st.rerun()
+else:
+    st.session_state["adding_user"] = False
+
+user = st.session_state["selected_user"]
+
+if st.session_state["adding_user"]:
+    with st.sidebar:
+        new_name = st.text_input("Benutzername", key="new_user_name_input")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Erstellen"):
+                if new_name.strip() and new_name not in st.session_state["users"]:
+                    st.session_state["users"].append(new_name.strip())
+                    st.session_state["besitz"][new_name.strip()] = []
+                    st.session_state["selected_user"] = new_name.strip()
+                    st.session_state["adding_user"] = False
+                    st.rerun()
+        with col2:
+            if st.button("Abbrechen"):
+                st.session_state["adding_user"] = False
+                st.rerun()
+
+# Besitzfilter (setzt standardmäßig auf "Alle Karten")
+if "Besitzfilter" not in st.session_state:
+    st.session_state["Besitzfilter"] = "Alle Karten"
+
+besitz_filter = st.sidebar.selectbox(
+    "Besitzfilter",
+    options=["Alle Karten", "Nur Besitz", "Nur Nicht-Besitz"],
+    index=["Alle Karten", "Nur Besitz", "Nur Nicht-Besitz"].index(st.session_state["Besitzfilter"]),
+    key="Besitzfilter"
 )
 
+besessene_karten = set(st.session_state["besitz"].get(user, []))
+
+# Filter anwenden auf Kopie von original_df
+df = original_df.copy()
+df["karte_id"] = df["set_name"].astype(str) + "_" + df["card_number"].astype(str)
+
+
+if besitz_filter == "Nur Besitz":
+    df = df[df["karte_id"].isin(besessene_karten)]
+elif besitz_filter == "Nur Nicht-Besitz":
+    df = df[~df["karte_id"].isin(besessene_karten)]
+
+st.sidebar.markdown("---")
+
+# Filter Sidebar
+st.sidebar.header("🔍 Filter")
+search_input = st.sidebar.selectbox("Pokémon suchen", [""] + sorted(df['pokemon_name'].unique()), key="pokemon_name")
 if search_input:
     df = df[df['pokemon_name'] == search_input]
 
-
-generations = df["generation"].dropna().unique()
-selected_generation = st.sidebar.multiselect("Generation auswählen", sorted(generations))
-if selected_generation:
-    df = df[df["generation"].isin(selected_generation)]
-
+generations = df.get("generation", pd.Series()).dropna().unique()
+if len(generations):
+    selected_generation = st.sidebar.multiselect("Generation auswählen", sorted(generations), key="multiselect_generation")
+    if selected_generation:
+        df = df[df["generation"].isin(selected_generation)]
 
 sets = df["set_name"].dropna().unique()
-selected_set = st.sidebar.multiselect("Set auswählen", sorted(sets))
+selected_set = st.sidebar.multiselect("Set auswählen", sorted(sets), key="multiselect_set")
 if selected_set:
     df = df[df["set_name"].isin(selected_set)]
 
 rarities = df["rarity"].dropna().unique()
-selected_rarities = st.sidebar.multiselect("Seltenheiten auswählen", sorted(rarities))
+selected_rarities = st.sidebar.multiselect("Seltenheiten auswählen", sorted(rarities), key="multiselect_rarity")
 if selected_rarities:
     df = df[df["rarity"].isin(selected_rarities)]
 
-# Ensure price and id are numeric for min/max calculations
-df['price'] = pd.to_numeric(df['price'], errors='coerce')
-df['pokemon_id'] = pd.to_numeric(df['pokemon_id'], errors='coerce')
-df.dropna(subset=['price', 'pokemon_id'], inplace=True)
-
-# --- Preisbereich ---
+# Preisfilter
 st.sidebar.subheader("Preisbereich (€)")
+df['price'] = pd.to_numeric(df['price'], errors='coerce')
+if df.empty or df['price'].dropna().empty:
+    price_min, price_max = 0, 0
+else:
+    price_min, price_max = math.floor(df['price'].min()), math.ceil(df['price'].max())
+min_input = st.sidebar.number_input("Min €", value=price_min, key="price_min")
+max_input = st.sidebar.number_input("Max €", value=price_max, key="price_max")
+df = df[(df["price"] >= min_input) & (df["price"] <= max_input)]
 
-price_min_val = int(math.floor(df["price"].min())) if not df["price"].empty else 0
-price_max_val = int(math.ceil(df["price"].max())) if not df["price"].empty else 1000
-
-
-col1, col2 = st.sidebar.columns(2)
-with col1:
-    price_min = st.number_input("Min €", min_value=price_min_val, max_value=price_max_val,
-                                value=price_min_val, step=1, key="price_min")
-with col2:
-    price_max = st.number_input("Max €", min_value=price_min_val, max_value=price_max_val,
-                                value=price_max_val, step=1, key="price_max")
-
-df = df[(df["price"] >= price_min) & (df["price"] <= price_max)]
-
-# --- Pokémon ID Bereich ---
+# ID Filter
 st.sidebar.subheader("🔢Pokémon ID")
+df['pokemon_id'] = pd.to_numeric(df['pokemon_id'], errors='coerce')
+if df.empty or df['pokemon_id'].dropna().empty:
+    id_min, id_max = 0, 0
+else:
+    id_min, id_max = int(df['pokemon_id'].min()), int(df['pokemon_id'].max())
+id_min_input = st.sidebar.number_input("Min ID", value=id_min, key="id_min")
+id_max_input = st.sidebar.number_input("Max ID", value=id_max, key="id_max")
+df = df[(df["pokemon_id"] >= id_min_input) & (df["pokemon_id"] <= id_max_input)]
 
-id_min_val = int(df["pokemon_id"].min()) if not df["pokemon_id"].empty else 0
-id_max_val = int(df["pokemon_id"].max()) if not df["pokemon_id"].empty else 999
-
-col3, col4 = st.sidebar.columns(2)
-with col3:
-    id_min = st.number_input("Min ID", min_value=id_min_val, max_value=id_max_val,
-                             value=id_min_val, step=1, key="id_min")
-with col4:
-    id_max = st.number_input("Max ID", min_value=id_min_val, max_value=id_max_val,
-                             value=id_max_val, step=1, key="id_max")
-
-df = df[(df["pokemon_id"] >= id_min) & (df["pokemon_id"] <= id_max)]
-
-
-
-# Filter anwenden
+st.sidebar.markdown("---")
 
 # --- Statistiken in der Sidebar anzeigen ---
 st.sidebar.markdown("### 📊 Zusammenfassung")
@@ -192,7 +314,6 @@ st.sidebar.markdown(f"**Gesamtwert aller Karten:** {gesamtwert:.0f}€")
 st.sidebar.markdown(f"**Range (1 Karte / Pokemon):** {min_pro_gruppe:.0f}€ - {max_pro_gruppe:.0f}€")
 if 'update' in df.columns and not df['update'].isnull().all():
     try:
-        # Datum korrekt als Datetime interpretieren
         df['update_parsed'] = pd.to_datetime(df['update'], format='%d.%m.%Y', errors='coerce')
         latest_update = df['update_parsed'].max()
         if pd.notna(latest_update):
@@ -200,28 +321,38 @@ if 'update' in df.columns and not df['update'].isnull().all():
     except Exception as e:
         st.sidebar.warning(f"Fehler beim Ermitteln des letzten Updates: {e}")
 
-gruppen = df.groupby("pokemon_name")
+st.sidebar.markdown("---")
 
+# Besitz-Aktion Buttons
+st.sidebar.markdown("### 🎴 Besitz-Aktion")
+if st.sidebar.button("🟢 Gefilterte Karten hinzufügen"):
+    neue_karten = df["karte_id"].tolist()
+    st.session_state["besitz"][user] = list(set(st.session_state["besitz"].get(user, [])).union(neue_karten))
+    save_besitz_to_gsheet()
+    st.rerun()
+if st.sidebar.button("🔴 Gefilterte Karten entfernen"):
+    entferne = set(df["karte_id"].tolist())
+    st.session_state["besitz"][user] = list(set(st.session_state["besitz"][user]) - entferne)
+    save_besitz_to_gsheet()
+    st.rerun()
 
-for pokemon_name, gruppe in gruppen:
+# Gruppierung und Anzeige der Karten
+for pokemon_name, gruppe in df.sort_values(by=["pokemon_name", "card_number"]).groupby("pokemon_name"):
     st.markdown(f"## {pokemon_name}")
-    
-    # Sortiere die Gruppe nach Kartennummer für eine konsistente Anzeige
-    gruppe = gruppe.sort_values(by='card_number').reset_index(drop=True)
-
-    # Iteriere über jede Karte in der Gruppe und zeige sie einzeln an
     for _, row in gruppe.iterrows():
-        img_b64 = img_to_base64(row["img"])  # img ist der Pfad zum PNG
+        img_b64 = img_to_base64(row["img"])
+        karte_id = row["karte_id"]
+        owned = karte_id in besessene_karten
+        card_class = "card-box owned" if owned else "card-box"
 
-        # Ensure card_number and set_size are integers before formatting
         card_number_str = str(int(row['card_number'])) if pd.notna(row['card_number']) else ''
-        set_size_str = str((row['set_size'])) if pd.notna(row['set_size']) else ''
+        set_size_str = str(row['set_size']) if pd.notna(row['set_size']) else ''
         price_str = f"{row['price']:.1f}" if pd.notna(row['price']) else 'N/A'
         rarity_str = row['rarity'] if pd.notna(row['rarity']) else 'Unknown'
-        update_str = row['update'] if pd.notna(row['update']) else '-'
+        update_str = row.get('update', '-')
 
         card_html = f"""
-        <div class="card-box">
+        <div class="{card_class}">
             <img src="{img_b64}" />
             <div class="card-text">
                 <b>{row['pokemon_name']}</b><br>
