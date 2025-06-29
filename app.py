@@ -376,6 +376,29 @@ if 'update' in df.columns and not df['update'].isnull().all():
     except Exception as e:
         st.sidebar.warning(f"Fehler beim Ermitteln des letzten Updates: {e}")
 
+# Berechnung basierend auf der aktuell gefilterten DataFrame "df"
+gefilterte_karten = df["karte_id"].unique()
+gefilterte_pokemon = df["pokemon_name"].unique()
+
+besessene_karten = set(st.session_state["besitz"].get(user, [])) if user else set()
+besessene_aus_filter = [k for k in gefilterte_karten if k in besessene_karten]
+
+# Pokémon-Namen bestimmen, die der User aus dem Filter besitzt
+pokemon_mit_besitz = df[df["karte_id"].isin(besessene_aus_filter)]["pokemon_name"].unique()
+
+karten_fortschritt = len(besessene_aus_filter) / len(gefilterte_karten) if len(gefilterte_karten) > 0 else 0
+pokemon_fortschritt = len(pokemon_mit_besitz) / len(gefilterte_pokemon) if len(gefilterte_pokemon) > 0 else 0
+
+if user and user.strip():
+
+    st.sidebar.markdown("**🃏 Karten gesammelt**")
+    st.sidebar.progress(karten_fortschritt)
+    st.sidebar.caption(f"{len(besessene_aus_filter)} von {len(gefilterte_karten)} Karten ({karten_fortschritt*100:.0f}%)")
+
+    st.sidebar.markdown("**🔢 Pokémon abgedeckt**")
+    st.sidebar.progress(pokemon_fortschritt)
+    st.sidebar.caption(f"{len(pokemon_mit_besitz)} von {len(gefilterte_pokemon)} Pokémon ({pokemon_fortschritt*100:.0f}%)")
+
 # Gruppierung und Anzeige der Karten
 for pokemon_name, gruppe in df.sort_values(by=["pokemon_name", "card_number"]).groupby("pokemon_name"):
     st.markdown(f"## {pokemon_name}")
