@@ -287,6 +287,15 @@ besitz_filter = st.sidebar.selectbox(
 
 besessene_karten = set(st.session_state["besitz"].get(user, []))
 
+# Filter auf Bearbeitungsmodus
+if "show_buttons" not in st.session_state:
+    st.session_state["show_buttons"] = True  # Standard: sichtbar
+
+st.session_state["show_buttons"] = st.sidebar.checkbox(
+    "Kollektion bearbeiten", 
+    value=st.session_state["show_buttons"]
+)
+
 # Filter anwenden auf Kopie von original_df
 df = original_df.copy()
 df["karte_id"] = df["set_name"].astype(str) + "_" + df["card_number"].astype(str)
@@ -395,7 +404,7 @@ for pokemon_name, gruppe in df.sort_values(by=["pokemon_name", "card_number"]).g
         """
         st.markdown(card_html, unsafe_allow_html=True)
 
-        if user and user.strip() and user in st.session_state["besitz"]:
+        if user and user.strip() and user in st.session_state["besitz"] and st.session_state.get("show_buttons", True):
             button_id = f"btn_{karte_id}"
             button_text = "❌ Aus Kollektion entfernen" if owned else "➕ Zur Kollektion hinzufügen"
 
