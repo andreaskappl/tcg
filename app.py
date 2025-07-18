@@ -289,7 +289,7 @@ besessene_karten = set(st.session_state["besitz"].get(user, []))
 
 # Filter auf Bearbeitungsmodus
 if "show_buttons" not in st.session_state:
-    st.session_state["show_buttons"] = True  # Standard: sichtbar
+    st.session_state["show_buttons"] = False  # Standard: sichtbar
 
 st.session_state["show_buttons"] = st.sidebar.checkbox(
     "Kollektion bearbeiten", 
