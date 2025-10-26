@@ -1,15 +1,75 @@
 generation,set_name,card_name,pokemon_id,pokemon_name,card_number,set_size,price,rarity,img,update
-Schwer & Schild,SWSH Black Star Promos,Pikachu,25,0025 Pikachu,20,-,54.9,Promo,./img/SWSH_20_Pikachu.png,26.10.2025
-Schwer & Schild,SWSH Black Star Promos,Flamara,136,0136 Flamara,179,-,69.9,Promo,./img/SWSH_179_FlamaraV.png,26.10.2025
-Schwer & Schild,SWSH Black Star Promos,Flamara,136,0136 Flamara,180,-,39.0,Promo,./img/SWSH_180_FlamaraVmax.png,26.10.2025
-Schwer & Schild,SWSH Black Star Promos,Aquana,134,0134 Aquana,181,-,74.99,Promo,./img/SWSH_181_AquanaV.png,26.10.2025
-Schwer & Schild,SWSH Black Star Promos,Aquana,134,0134 Aquana,182,-,73.99,Promo,./img/SWSH_182_AquanaVmax.png,26.10.2025
-Schwer & Schild,SWSH Black Star Promos,Blitza,135,0135 Blitza,183,-,48.0,Promo,./img/SWSH_183_BlitzaV.png,26.10.2025
-Schwer & Schild,SWSH Black Star Promos,Blitza,135,0135 Blitza,184,-,51.50,Promo,./img/SWSH_184_BlitzaVmax.png,26.10.2025
-Schwer & Schild,SWSH Black Star Promos,Arceus,493,0496 Arceus,204,-,13.50,Promo,./img/SWSH_204_ArceusV.png,26.10.2025
-Schwer & Schild,SWSH Black Star Promos,Glurak,6,0006 Glurak,260,-,30.0,Promo,./img/SWSH_260_GlurakV.png,26.10.2025
-Schwer & Schild,SWSH Black Star Promos,Glurak,6,0006 Glurak,261,-,27.99,Promo,./img/SWSH_261_GlurakVmax.png,26.10.2025
-Schwer & Schild,SWSH Black Star Promos,Glurak,6,0006 Glurak,262,-,44.90,Promo,./img/SWSH_262_GlurakVstar.png,26.10.2025
+Schwert & Schild,SWSH Black Star Promos,Pikachu,25,0025 Pikachu,20,-,54.9,Promo,./img/SWSH_20_Pikachu.png,26.10.2025
+Schwert & Schild,SWSH Black Star Promos,Flamara,136,0136 Flamara,179,-,69.9,Promo,./img/SWSH_179_FlamaraV.png,26.10.2025
+Schwert & Schild,SWSH Black Star Promos,Flamara,136,0136 Flamara,180,-,39.0,Promo,./img/SWSH_180_FlamaraVmax.png,26.10.2025
+Schwert & Schild,SWSH Black Star Promos,Aquana,134,0134 Aquana,181,-,74.99,Promo,./img/SWSH_181_AquanaV.png,26.10.2025
+Schwert & Schild,SWSH Black Star Promos,Aquana,134,0134 Aquana,182,-,73.99,Promo,./img/SWSH_182_AquanaVmax.png,26.10.2025
+Schwert & Schild,SWSH Black Star Promos,Blitza,135,0135 Blitza,183,-,48.0,Promo,./img/SWSH_183_BlitzaV.png,26.10.2025
+Schwert & Schild,SWSH Black Star Promos,Blitza,135,0135 Blitza,184,-,51.50,Promo,./img/SWSH_184_BlitzaVmax.png,26.10.2025
+Schwert & Schild,SWSH Black Star Promos,Arceus,493,0496 Arceus,204,-,13.50,Promo,./img/SWSH_204_ArceusV.png,26.10.2025
+Schwert & Schild,SWSH Black Star Promos,Glurak,6,0006 Glurak,260,-,30.0,Promo,./img/SWSH_260_GlurakV.png,26.10.2025
+Schwert & Schild,SWSH Black Star Promos,Glurak,6,0006 Glurak,261,-,27.99,Promo,./img/SWSH_261_GlurakVmax.png,26.10.2025
+Schwert & Schild,SWSH Black Star Promos,Glurak,6,0006 Glurak,262,-,44.90,Promo,./img/SWSH_262_GlurakVstar.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Arceus VSTAR,493,0493 Arceus,GG70,GG70,139.95,Rare Secret,./img/ZenitderKönige_GG70_Arceus VSTAR.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Giratina VSTAR,487,0487 Giratina,GG69,GG69,150.0,Rare Secret,./img/ZenitderKönige_GG69_Giratina VSTAR.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Ur-Dialga VSTAR,483,0483 Dialga,GG68,GG68,80.0,Rare Secret,./img/ZenitderKönige_GG68_Ur-Dialga VSTAR.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Ur-Palkia VSTAR,484,0484 Palkia,GG67,GG67,69.0,Rare Secret,./img/ZenitderKönige_GG67_Ur-Palkia VSTAR.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Hisui-Zoroark VSTAR,571,0571 Zoroark,GG56,GG56,25.0,Rare Holo VSTAR,./img/ZenitderKönige_GG56_Hisui-Zoroark VSTAR.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Regigigas VSTAR,486,0486 Regigigas,GG55,GG55,13.97,Rare Holo VSTAR,./img/ZenitderKönige_GG55_Regigigas VSTAR.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Zamazenta V,889,0889 Zamazenta,GG54,GG54,17.94,Rare Holo V,./img/ZenitderKönige_GG54_Zamazenta V.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Hoopa V,720,0720 Hoopa,GG53,GG53,7.95,Rare Holo V,./img/ZenitderKönige_GG53_Hoopa V.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Hisui-Admurai VSTAR,503,0503 Admurai,GG52,GG52,8.0,Rare Holo VSTAR,./img/ZenitderKönige_GG52_Hisui-Admurai VSTAR.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Hisui-Admurai V,503,0503 Admurai,GG51,GG51,12.0,Rare Holo V,./img/ZenitderKönige_GG51_Hisui-Admurai V.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Darkrai VSTAR,491,0491 Darkrai,GG50,GG50,42.2,Rare Holo VSTAR,./img/ZenitderKönige_GG50_Darkrai VSTAR.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Piondragi V,452,0452 Piondragi,GG49,GG49,4.89,Rare Holo V,./img/ZenitderKönige_GG49_Piondragi V.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Zacian V,888,0888 Zacian,GG48,GG48,19.97,Rare Holo V,./img/ZenitderKönige_GG48_Zacian V.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Silembrim VMAX,858,0858 Silembrim,GG47,GG47,4.99,Rare Holo VMAX,./img/ZenitderKönige_GG47_Silembrim VMAX.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Deoxys VSTAR,386,0386 Deoxys,GG46,GG46,20.0,Rare Holo VSTAR,./img/ZenitderKönige_GG46_Deoxys VSTAR.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Deoxys VMAX,386,0386 Deoxys,GG45,GG45,21.0,Rare Holo VMAX,./img/ZenitderKönige_GG45_Deoxys VMAX.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Mewtu VSTAR,150,0150 Mewtu,GG44,GG44,119.0,Rare Holo VSTAR,./img/ZenitderKönige_GG44_Mewtu VSTAR.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Zeraora VSTAR,807,0807 Zeraora,GG43,GG43,14.99,Rare Holo VSTAR,./img/ZenitderKönige_GG43_Zeraora VSTAR.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Raikou V,243,0243 Raikou,GG41,GG41,29.99,Rare Holo V,./img/ZenitderKönige_GG41_Raikou V.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Glaziola VSTAR,471,0471 Glaziola,GG40,GG40,44.0,Rare Holo VSTAR,./img/ZenitderKönige_GG40_Glaziola VSTAR.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Lumineon V,457,0457 Lumineon,GG39,GG39,11.87,Rare Holo V,./img/ZenitderKönige_GG39_Lumineon V.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Suicune V,245,0245 Suicune,GG38,GG38,42.5,Rare Holo V,./img/ZenitderKönige_GG38_Suicune V.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Grillchita VSTAR,514,0514 Grillchita,GG37,GG37,13.68,Rare Holo VSTAR,./img/ZenitderKönige_GG37_Grillchita VSTAR.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Entei V,244,0244 Entei,GG36,GG36,33.99,Rare Holo V,./img/ZenitderKönige_GG36_Entei V.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Folipurba VSTAR,470,0470 Folipurba,GG35,GG35,46.98,Rare Holo VSTAR,./img/ZenitderKönige_GG35_Folipurba VSTAR.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Voltilamm,179,0179 Voltilamm,GG34,GG34,7.1,Trainer Gallery Rare Holo,./img/ZenitderKönige_GG34_Voltilamm.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Fiffyen,261,0261 Fiffyen,GG33,GG33,4.0,Trainer Gallery Rare Holo,./img/ZenitderKönige_GG33_Fiffyen.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Paras,46,0046 Paras,GG32,GG32,4.49,Trainer Gallery Rare Holo,./img/ZenitderKönige_GG32_Paras.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Chelast,387,0387 Chelast,GG31,GG31,5.0,Trainer Gallery Rare Holo,./img/ZenitderKönige_GG31_Chelast.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Pikachu,25,0025 Pikachu,GG30,GG30,23.99,Trainer Gallery Rare Holo,./img/ZenitderKönige_GG30_Pikachu.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Bidiza,399,0399 Bidiza,GG29,GG29,3.47,Trainer Gallery Rare Holo,./img/ZenitderKönige_GG29_Bidiza.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Zwirrlicht,355,0355 Zwirrlicht,GG28,GG28,3.18,Trainer Gallery Rare Holo,./img/ZenitderKönige_GG28_Zwirrlicht.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Wablu,333,0333 Wablu,GG27,GG27,3.0,Trainer Gallery Rare Holo,./img/ZenitderKönige_GG27_Wablu.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Riolu,447,0447 Riolu,GG26,GG26,4.9,Trainer Gallery Rare Holo,./img/ZenitderKönige_GG26_Riolu.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Bidifas,400,0400 Bidifas,GG25,GG25,2.0,Trainer Gallery Rare Holo,./img/ZenitderKönige_GG25_Bidifas.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Miltank,241,0241 Miltank,GG24,GG24,3.99,Trainer Gallery Rare Holo,./img/ZenitderKönige_GG24_Miltank.png,26.10.2025
+Schwert & Schild,Zenit der Könige,Dummisel,206,0206 Dummisel,GG23,GG23,1.4,Trainer Gallery Rare Holo,./img/ZenitderKönige_GG23_Dummisel.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Heiteira V,242,0242 Heiteira,TG22,TG22,8.99,Rare Holo V,./img/SilberneSturmwinde_TG22_Heiteira V.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Duraludon VMAX,884,0884 Duraludon,TG21,TG21,7.79,Rare Holo VMAX,./img/SilberneSturmwinde_TG21_Duraludon VMAX.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Krarmor V,823,0823 Krarmor,TG18,TG18,6.75,Rare Holo V,./img/SilberneSturmwinde_TG18_Krarmor V.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Flunkifer V,303,0303 Flunkifer,TG17,TG17,7.5,Rare Holo V,./img/SilberneSturmwinde_TG17_Flunkifer V.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Lohgock V,257,0257 Lohgock,TG14,TG14,13.9,Rare Holo V,./img/SilberneSturmwinde_TG14_Lohgock V.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Serpiroyal V,497,0497 Serpiroyal,TG13,TG13,15.75,Rare Holo V,./img/SilberneSturmwinde_TG13_Serpiroyal V.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Zirpeise V,402,0402 Zirpeise,TG12,TG12,4.15,Rare Holo V,./img/SilberneSturmwinde_TG12_Zirpeise V.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Altaria,334,0334 Altaria,TG11,TG11,3.5,Trainer Gallery Rare Holo,./img/SilberneSturmwinde_TG11_Altaria.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Farbeagle,235,0235 Farbeagle,TG10,TG10,1.4,Trainer Gallery Rare Holo,./img/SilberneSturmwinde_TG10_Farbeagle.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Shardrago,621,0621 Shardrago,TG09,TG09,2.0,Trainer Gallery Rare Holo,./img/SilberneSturmwinde_TG09_Shardrago.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Quartermak,766,0766 Quartermak,TG08,TG08,0.67,Trainer Gallery Rare Holo,./img/SilberneSturmwinde_TG08_Quartermak.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Wuffels,744,0744 Wuffels,TG07,TG07,2.0,Trainer Gallery Rare Holo,./img/SilberneSturmwinde_TG07_Wuffels.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Calamanero,687,0687 Calamanero,TG06,TG06,0.8,Trainer Gallery Rare Holo,./img/SilberneSturmwinde_TG06_Calamanero.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Guardevoir,282,0282 Guardevoir,TG05,TG05,4.45,Trainer Gallery Rare Holo,./img/SilberneSturmwinde_TG05_Guardevoir.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Rossana,124,0124 Rossana,TG04,TG04,1.15,Trainer Gallery Rare Holo,./img/SilberneSturmwinde_TG04_Rossana.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Waaty,180,0180 Waaty,TG03,TG03,2.1,Trainer Gallery Rare Holo,./img/SilberneSturmwinde_TG03_Waaty.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Milotic,350,0350 Milotic,TG02,TG02,4.0,Trainer Gallery Rare Holo,./img/SilberneSturmwinde_TG02_Milotic.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Rutena,654,0654 Rutena,TG01,TG01,2.44,Trainer Gallery Rare Holo,./img/SilberneSturmwinde_TG01_Rutena.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Lugia V,249,0249 Lugia,186,186,250.0,Rare Ultra,./img/SilberneSturmwinde_186_Lugia V.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Regidrago V,895,0895 Regidrago,184,184,16.0,Rare Ultra,./img/SilberneSturmwinde_184_Regidrago V.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Skuntank V,435,0435 Skuntank,181,181,8.0,Rare Ultra,./img/SilberneSturmwinde_181_Skuntank V.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Icognito V,201,0201 Icognito,177,177,16.9,Rare Ultra,./img/SilberneSturmwinde_177_Icognito V.png,26.10.2025
+Schwert & Schild,Silberne Sturmwinde,Lugia V,249,0249 Lugia,138,138,9.55,Rare Holo V,./img/SilberneSturmwinde_138_Lugia V.png,26.10.2025
 Karmesin & Purpur,Reisegefährten,Brutalanda-ex,373,0373 Brutalanda,187,159,50.0,Special Illustration Rare,./img/Reisegefährten_187_Brutalanda-ex.png,26.10.2025
 Karmesin & Purpur,Reisegefährten,Hops Zacian-ex,888,0888 Zacian,186,159,34.5,Special Illustration Rare,./img/Reisegefährten_186_Hops Zacian-ex.png,26.10.2025
 Karmesin & Purpur,Reisegefährten,Ns Zoroark-ex,571,0571 Zoroark,185,159,40.0,Special Illustration Rare,./img/Reisegefährten_185_Ns Zoroark-ex.png,26.10.2025
