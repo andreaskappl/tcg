@@ -315,8 +315,12 @@ if search_input:
     df = df[df['pokemon_name'] == search_input]
 
 generations = df.get("generation", pd.Series()).dropna().unique()
+default_generations = [g for g in sorted(generations) if g in ["Karmesin & Purpur", "Mega-Entwicklungen"]]
+if "multiselect_generation" not in st.session_state:
+    st.session_state["multiselect_generation"] = default_generations
+    
 if len(generations):
-    selected_generation = st.sidebar.multiselect("Generation auswählen", sorted(generations), key="multiselect_generation")
+    selected_generation = st.sidebar.multiselect("Generation auswählen", options=sorted(generations), default=st.session_state["multiselect_generation"], key="multiselect_generation")
     if selected_generation:
         df = df[df["generation"].isin(selected_generation)]
 

@@ -1,4 +1,15 @@
 generation,set_name,card_name,pokemon_id,pokemon_name,card_number,set_size,price,rarity,img,update
+Schwer & Schild,SWSH Black Star Promos,Pikachu,25,0025 Pikachu,20,-,54.9,Promo,./img/SWSH_20_Pikachu.png,26.10.2025
+Schwer & Schild,SWSH Black Star Promos,Flamara,136,0136 Flamara,179,-,69.9,Promo,./img/SWSH_179_FlamaraV.png,26.10.2025
+Schwer & Schild,SWSH Black Star Promos,Flamara,136,0136 Flamara,180,-,39.0,Promo,./img/SWSH_180_FlamaraVmax.png,26.10.2025
+Schwer & Schild,SWSH Black Star Promos,Aquana,134,0134 Aquana,181,-,74.99,Promo,./img/SWSH_181_AquanaV.png,26.10.2025
+Schwer & Schild,SWSH Black Star Promos,Aquana,134,0134 Aquana,182,-,73.99,Promo,./img/SWSH_182_AquanaVmax.png,26.10.2025
+Schwer & Schild,SWSH Black Star Promos,Blitza,135,0135 Blitza,183,-,48.0,Promo,./img/SWSH_183_BlitzaV.png,26.10.2025
+Schwer & Schild,SWSH Black Star Promos,Blitza,135,0135 Blitza,184,-,51.50,Promo,./img/SWSH_184_BlitzaVmax.png,26.10.2025
+Schwer & Schild,SWSH Black Star Promos,Arceus,493,0496 Arceus,204,-,13.50,Promo,./img/SWSH_204_ArceusV.png,26.10.2025
+Schwer & Schild,SWSH Black Star Promos,Glurak,6,0006 Glurak,260,-,30.0,Promo,./img/SWSH_260_GlurakV.png,26.10.2025
+Schwer & Schild,SWSH Black Star Promos,Glurak,6,0006 Glurak,261,-,27.99,Promo,./img/SWSH_261_GlurakVmax.png,26.10.2025
+Schwer & Schild,SWSH Black Star Promos,Glurak,6,0006 Glurak,262,-,44.90,Promo,./img/SWSH_262_GlurakVstar.png,26.10.2025
 Karmesin & Purpur,Reisegefährten,Brutalanda-ex,373,0373 Brutalanda,187,159,50.0,Special Illustration Rare,./img/Reisegefährten_187_Brutalanda-ex.png,26.10.2025
 Karmesin & Purpur,Reisegefährten,Hops Zacian-ex,888,0888 Zacian,186,159,34.5,Special Illustration Rare,./img/Reisegefährten_186_Hops Zacian-ex.png,26.10.2025
 Karmesin & Purpur,Reisegefährten,Ns Zoroark-ex,571,0571 Zoroark,185,159,40.0,Special Illustration Rare,./img/Reisegefährten_185_Ns Zoroark-ex.png,26.10.2025
