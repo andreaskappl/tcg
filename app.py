@@ -411,8 +411,12 @@ for pokemon_name, gruppe in df.sort_values(by=["pokemon_name", "card_number"]).g
         karte_id = row["karte_id"]
         owned = karte_id in besessene_karten
         card_class = "card-box owned" if owned else "card-box"
-
-        card_number_str = str(int(row['card_number'])) if pd.notna(row['card_number']) else ''
+        
+        if 'G' in row['card_number']:
+            card_number_str = str(row['card_number']) if pd.notna(row['card_number']) else ''
+        else:
+            card_number_str = str(int(row['card_number'])) if pd.notna(row['card_number']) else ''
+        
         set_size_str = str(row['set_size']) if pd.notna(row['set_size']) else ''
         price_str = f"{row['price']:.1f}" if pd.notna(row['price']) else 'N/A'
         rarity_str = row['rarity'] if pd.notna(row['rarity']) else 'Unknown'
