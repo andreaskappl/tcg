@@ -314,15 +314,38 @@ search_input = st.sidebar.selectbox("Pokémon suchen", [""] + sorted(df['pokemon
 if search_input:
     df = df[df['pokemon_name'] == search_input]
 
-generations = df.get("generation", pd.Series()).dropna().unique()
-default_generations = [g for g in sorted(generations) if g in ["Karmesin & Purpur", "Mega-Entwicklungen"]]
+generations = df.get("generation", pd.Series(dtype=str)).dropna().unique().tolist()
+opts = sorted(generations)
+
+# Initial-Default nur beim ersten Mal setzen
 if "multiselect_generation" not in st.session_state:
-    st.session_state["multiselect_generation"] = default_generations
-    
-if len(generations):
-    selected_generation = st.sidebar.multiselect("Generation auswählen", options=sorted(generations), default=st.session_state["multiselect_generation"], key="multiselect_generation")
+    st.session_state["multiselect_generation"] = [g for g in opts if g in ["Karmesin & Purpur", "Mega-Entwicklungen"]]
+
+# Gespeicherten Wert an aktuelle Optionen anpassen (sonst Exception)
+st.session_state["multiselect_generation"] = [
+    g for g in st.session_state["multiselect_generation"] if g in opts
+]
+
+if opts:
+    # Kein default übergeben, wenn key verwendet wird – Streamlit nimmt den Sessionstate
+    selected_generation = st.sidebar.multiselect(
+        "Generation auswählen",
+        options=opts,
+        key="multiselect_generation",
+    )
     if selected_generation:
         df = df[df["generation"].isin(selected_generation)]
+
+
+# generations = df.get("generation", pd.Series()).dropna().unique()
+# default_generations = [g for g in sorted(generations) if g in ["Karmesin & Purpur", "Mega-Entwicklungen"]]
+# if "multiselect_generation" not in st.session_state:
+#     st.session_state["multiselect_generation"] = default_generations
+    
+# if len(generations):
+#     selected_generation = st.sidebar.multiselect("Generation auswählen", options=sorted(generations), default=st.session_state["multiselect_generation"], key="multiselect_generation")
+#     if selected_generation:
+#         df = df[df["generation"].isin(selected_generation)]
 
 sets = df["set_name"].dropna().unique()
 selected_set = st.sidebar.multiselect("Set auswählen", sorted(sets), key="multiselect_set")
