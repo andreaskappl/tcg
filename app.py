@@ -5,9 +5,11 @@ import base64
 from io import BytesIO
 import os
 import math
-from google.oauth2.service_account import Credentials
-import gspread
 import requests
+from collections import defaultdict
+from pathlib import Path
+
+
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
@@ -22,47 +24,36 @@ def _sb_headers():
     }
 
 # Funktion, um lokale PNG in base64 Data-URL zu verwandeln
+@st.cache_data(show_spinner=False)
 def img_to_base64(img_path):
     try:
         if not os.path.exists(img_path):
             st.warning(f"Bild nicht gefunden: {img_path}. Platzhalter wird verwendet.")
             return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+
         img = Image.open(img_path)
+
         buffered = BytesIO()
-        if img.mode != 'RGB' and img.mode != 'RGBA':
-            img = img.convert('RGBA')
-        img.save(buffered, format="PNG")
+
+        # WICHTIG: kein PNG mehr erzwingen
+        img = img.convert("RGB")
+        img.save(buffered, format="WEBP", quality=70)
+
         img_b64 = base64.b64encode(buffered.getvalue()).decode()
-        return f"data:image/png;base64,{img_b64}"
+        return f"data:image/webp;base64,{img_b64}"
+
     except Exception as e:
         st.error(f"Fehler beim Laden oder Konvertieren des Bildes {img_path}: {e}")
         return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
 
-# def load_besitz_from_gsheet():
-#     try:
-#         records = worksheet.get_all_records()
-#         if not records:
-#             return ["andi"], {"andi": []}
-
-#         df_sheet = pd.DataFrame(records)
-
-#         users = df_sheet['user'].unique().tolist()
-#         besitz = {user: df_sheet[df_sheet['user'] == user]['karte_id'].tolist() for user in users}
-
-#         return users, besitz
-#     except Exception as e:
-#         st.warning(f"Fehler beim Laden aus Google Sheet: {e}")
-#         return ["andi"], {"andi": []}
-
-# def save_besitz_to_gsheet():
-#     data = []
-#     for user, cards in st.session_state["besitz"].items():
-#         for karte_id in cards:
-#             data.append([user, karte_id])
-
-#     worksheet.clear()
-#     worksheet.update([['user', 'karte_id']] + data)
-#     # st.success("Besitzdaten erfolgreich gespeichert!")
+def image_for_ui(original_path: str) -> str:
+    """
+    Liefert optimiertes Bild (webp), falls vorhanden,
+    sonst das Original.
+    """
+    p = Path(original_path)
+    webp = p.with_suffix(".webp")
+    return str(webp if webp.exists() else p)
 
 def load_besitz_from_supabase():
     try:
@@ -86,49 +77,32 @@ def load_besitz_from_supabase():
         st.warning(f"Fehler beim Laden aus Supabase: {e}")
         return ["andi"], {"andi": []}
 
-def save_besitz_to_supabase():
+def save_besitz_change_to_supabase(user: str, karte_id: str, add: bool) -> None:
     """
-    Synct den aktuellen Session-State in die DB:
-    - löscht Einträge, die entfernt wurden
-    - upsertet Einträge, die neu sind
+    add=True  -> INSERT/UPSERT einer (user, karte_id) Zeile
+    add=False -> DELETE dieser Zeile
     """
-    try:
-        # 1) aktuellen DB-Stand laden
-        url = f"{SUPABASE_URL}/rest/v1/user_cards"
-        r = requests.get(url, headers=_sb_headers(), params={"select": "user,karte_id"}, timeout=30)
+    base = f"{SUPABASE_URL}/rest/v1/user_cards"
+
+    if add:
+        payload = [{"user": user, "karte_id": karte_id}]
+        # on_conflict sorgt dafür, dass du keine Duplikate bekommst (PK user+karte_id)
+        r = requests.post(
+            base,
+            headers=_sb_headers(),
+            params={"on_conflict": "user,karte_id"},
+            json=payload,
+            timeout=15,
+        )
         r.raise_for_status()
-        db_rows = r.json()
-
-        db_set = {(x["user"], x["karte_id"]) for x in db_rows}
-
-        # 2) session-state als set
-        desired_set = set()
-        for user, cards in st.session_state["besitz"].items():
-            for karte_id in cards:
-                desired_set.add((user, karte_id))
-
-        to_delete = db_set - desired_set
-        to_upsert = desired_set - db_set
-
-        # 3) Deletes (einzeln, weil PostgREST Bulk-Delete mit OR etwas fummelig ist)
-        # bei kleinen Datenmengen ok; später optimieren wir das
-        for user, karte_id in to_delete:
-            del_url = f"{SUPABASE_URL}/rest/v1/user_cards"
-            params = {"user": f"eq.{user}", "karte_id": f"eq.{karte_id}"}
-            rd = requests.delete(del_url, headers=_sb_headers(), params=params, timeout=30)
-            rd.raise_for_status()
-
-        # 4) Upsert in einem Batch
-        if to_upsert:
-            payload = [{"user": u, "karte_id": k} for (u, k) in to_upsert]
-            up_url = f"{SUPABASE_URL}/rest/v1/user_cards"
-            # resolution=merge-duplicates -> upsert anhand PK
-            ru = requests.post(up_url, headers=_sb_headers(), params={"on_conflict": "user,karte_id"}, json=payload, timeout=30)
-            ru.raise_for_status()
-
-    except Exception as e:
-        st.warning(f"Fehler beim Speichern nach Supabase: {e}")
-
+    else:
+        r = requests.delete(
+            base,
+            headers=_sb_headers(),
+            params={"user": f"eq.{user}", "karte_id": f"eq.{karte_id}"},
+            timeout=15,
+        )
+        r.raise_for_status()
 
 # Filter zurücksetzen bei Benutzerwechsel
 def reset_filter_session_state(df):
@@ -157,33 +131,6 @@ def reset_filter_session_state(df):
 
     for key, value in reset_defaults.items():
         st.session_state[key] = value
-
-# Google Sheets Setup
-# Erst versuchen, aus Environment-Variable zu lesen (z. B. bei Deployment)
-service_account_info = os.environ.get("GCP_SERVICE_ACCOUNT")
-
-if service_account_info:
-    # Temporär schreiben
-    with open("service_account.json", "w") as f:
-        f.write(service_account_info)
-    print("🔐 Service Account aus Umgebungsvariable geladen.")
-elif os.path.exists("service_account.json"):
-    # Lokale Datei ist vorhanden
-    print("📁 Lokale service_account.json wird verwendet.")
-else:
-    raise FileNotFoundError("❌ Kein gültiger Service Account gefunden.")
-
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-credentials = Credentials.from_service_account_file("service_account.json", scopes=scope)
-client = gspread.authorize(credentials)
-
-# Lösche temporäre Datei
-if service_account_info:
-    os.remove("service_account.json")
-
-sheet_url = "https://docs.google.com/spreadsheets/d/16k-71_UMxxGVtQSVb4VSyEczJcmj_ldoC5iJG69-zFY/edit"
-spreadsheet = client.open_by_url(sheet_url)
-worksheet = spreadsheet.sheet1
 
 # CSS Styling
 st.markdown("""
@@ -509,7 +456,7 @@ if user and user.strip():
 for pokemon_name, gruppe in df.sort_values(by=["pokemon_name", "card_number"]).groupby("pokemon_name"):
     st.markdown(f"## {pokemon_name}")
     for _, row in gruppe.iterrows():
-        img_b64 = img_to_base64(row["img"])
+        img_b64 = img_to_base64(image_for_ui(row["img"]))
         karte_id = row["karte_id"]
         owned = karte_id in besessene_karten
         card_class = "card-box owned" if owned else "card-box"
@@ -542,9 +489,18 @@ for pokemon_name, gruppe in df.sort_values(by=["pokemon_name", "card_number"]).g
             button_text = "❌ Aus Kollektion entfernen" if owned else "➕ Zur Kollektion hinzufügen"
 
             if st.button(button_text, key=f"button_{karte_id}"):
-                if owned:
-                    st.session_state["besitz"][user].remove(karte_id)
-                else:
-                    st.session_state["besitz"][user].append(karte_id)
-                save_besitz_to_supabase()
-                st.rerun()
+                try:
+
+                    if owned:
+                        st.session_state["besitz"][user].remove(karte_id)
+                        save_besitz_change_to_supabase(user, karte_id, add=False)
+                    else:
+                        st.session_state["besitz"][user].append(karte_id)
+                        save_besitz_change_to_supabase(user, karte_id, add=True)
+
+                    st.rerun()
+
+                except Exception as e:
+                    st.warning(f"Speichern fehlgeschlagen: {e}")
+
+
