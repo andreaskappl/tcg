@@ -7,6 +7,19 @@ import os
 import math
 from google.oauth2.service_account import Credentials
 import gspread
+import requests
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+
+def _sb_headers():
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise RuntimeError("SUPABASE_URL / SUPABASE_SERVICE_KEY fehlt in den Env Vars")
+    return {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
+    }
 
 # Funktion, um lokale PNG in base64 Data-URL zu verwandeln
 def img_to_base64(img_path):
@@ -25,31 +38,97 @@ def img_to_base64(img_path):
         st.error(f"Fehler beim Laden oder Konvertieren des Bildes {img_path}: {e}")
         return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
 
-def load_besitz_from_gsheet():
+# def load_besitz_from_gsheet():
+#     try:
+#         records = worksheet.get_all_records()
+#         if not records:
+#             return ["andi"], {"andi": []}
+
+#         df_sheet = pd.DataFrame(records)
+
+#         users = df_sheet['user'].unique().tolist()
+#         besitz = {user: df_sheet[df_sheet['user'] == user]['karte_id'].tolist() for user in users}
+
+#         return users, besitz
+#     except Exception as e:
+#         st.warning(f"Fehler beim Laden aus Google Sheet: {e}")
+#         return ["andi"], {"andi": []}
+
+# def save_besitz_to_gsheet():
+#     data = []
+#     for user, cards in st.session_state["besitz"].items():
+#         for karte_id in cards:
+#             data.append([user, karte_id])
+
+#     worksheet.clear()
+#     worksheet.update([['user', 'karte_id']] + data)
+#     # st.success("Besitzdaten erfolgreich gespeichert!")
+
+def load_besitz_from_supabase():
     try:
-        records = worksheet.get_all_records()
-        if not records:
+        url = f"{SUPABASE_URL}/rest/v1/user_cards"
+        params = {"select": "user,karte_id"}
+        r = requests.get(url, headers=_sb_headers(), params=params, timeout=30)
+        r.raise_for_status()
+
+        rows = r.json()
+        if not rows:
             return ["andi"], {"andi": []}
 
-        df_sheet = pd.DataFrame(records)
+        besitz = defaultdict(list)
+        for row in rows:
+            besitz[row["user"]].append(row["karte_id"])
 
-        users = df_sheet['user'].unique().tolist()
-        besitz = {user: df_sheet[df_sheet['user'] == user]['karte_id'].tolist() for user in users}
+        users = sorted(besitz.keys())
+        return users, dict(besitz)
 
-        return users, besitz
     except Exception as e:
-        st.warning(f"Fehler beim Laden aus Google Sheet: {e}")
+        st.warning(f"Fehler beim Laden aus Supabase: {e}")
         return ["andi"], {"andi": []}
 
-def save_besitz_to_gsheet():
-    data = []
-    for user, cards in st.session_state["besitz"].items():
-        for karte_id in cards:
-            data.append([user, karte_id])
+def save_besitz_to_supabase():
+    """
+    Synct den aktuellen Session-State in die DB:
+    - löscht Einträge, die entfernt wurden
+    - upsertet Einträge, die neu sind
+    """
+    try:
+        # 1) aktuellen DB-Stand laden
+        url = f"{SUPABASE_URL}/rest/v1/user_cards"
+        r = requests.get(url, headers=_sb_headers(), params={"select": "user,karte_id"}, timeout=30)
+        r.raise_for_status()
+        db_rows = r.json()
 
-    worksheet.clear()
-    worksheet.update([['user', 'karte_id']] + data)
-    # st.success("Besitzdaten erfolgreich gespeichert!")
+        db_set = {(x["user"], x["karte_id"]) for x in db_rows}
+
+        # 2) session-state als set
+        desired_set = set()
+        for user, cards in st.session_state["besitz"].items():
+            for karte_id in cards:
+                desired_set.add((user, karte_id))
+
+        to_delete = db_set - desired_set
+        to_upsert = desired_set - db_set
+
+        # 3) Deletes (einzeln, weil PostgREST Bulk-Delete mit OR etwas fummelig ist)
+        # bei kleinen Datenmengen ok; später optimieren wir das
+        for user, karte_id in to_delete:
+            del_url = f"{SUPABASE_URL}/rest/v1/user_cards"
+            params = {"user": f"eq.{user}", "karte_id": f"eq.{karte_id}"}
+            rd = requests.delete(del_url, headers=_sb_headers(), params=params, timeout=30)
+            rd.raise_for_status()
+
+        # 4) Upsert in einem Batch
+        if to_upsert:
+            payload = [{"user": u, "karte_id": k} for (u, k) in to_upsert]
+            up_url = f"{SUPABASE_URL}/rest/v1/user_cards"
+            # resolution=merge-duplicates -> upsert anhand PK
+            ru = requests.post(up_url, headers=_sb_headers(), params={"on_conflict": "user,karte_id"}, json=payload, timeout=30)
+            ru.raise_for_status()
+
+    except Exception as e:
+        st.warning(f"Fehler beim Speichern nach Supabase: {e}")
+
 
 # Filter zurücksetzen bei Benutzerwechsel
 def reset_filter_session_state(df):
@@ -191,7 +270,7 @@ st.markdown("""
 
 # Session State Initialisierung
 if "users" not in st.session_state or "besitz" not in st.session_state:
-    users, besitz = load_besitz_from_gsheet()
+    users, besitz = load_besitz_from_supabase()
     st.session_state["users"] = users
     st.session_state["besitz"] = besitz
 
@@ -467,5 +546,5 @@ for pokemon_name, gruppe in df.sort_values(by=["pokemon_name", "card_number"]).g
                     st.session_state["besitz"][user].remove(karte_id)
                 else:
                     st.session_state["besitz"][user].append(karte_id)
-                save_besitz_to_gsheet()
+                save_besitz_to_supabase()
                 st.rerun()
