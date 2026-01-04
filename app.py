@@ -6,20 +6,92 @@ from io import BytesIO
 import os
 import math
 import requests
+from supabase import create_client
 from collections import defaultdict
 from pathlib import Path
 
-
-
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
-SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 
-def _sb_headers():
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        raise RuntimeError("SUPABASE_URL / SUPABASE_SERVICE_KEY fehlt in den Env Vars")
+if "sb_session" not in st.session_state:
+    st.session_state["sb_session"] = None
+if "sb_user" not in st.session_state:
+    st.session_state["sb_user"] = None
+
+@st.cache_resource
+def sb():
+    """Supabase Client (anon key). Für Auth-Calls ok; DB-RLS greift über User-Token bei REST-Calls."""
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        raise RuntimeError("SUPABASE_URL / SUPABASE_ANON_KEY fehlt in den Env Vars")
+    return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+def auth_gate():
+    """Blockiert die gesamte App, bis der User eingeloggt ist."""
+    if st.session_state.get("sb_session") and st.session_state.get("sb_user"):
+        return
+
+    st.title("🔐 Bitte anmelden")
+    tab_login, tab_signup = st.tabs(["Login", "Registrieren"])
+
+    with tab_login:
+        email = st.text_input("Email", key="login_email")
+        pw = st.text_input("Passwort", type="password", key="login_pw")
+        if st.button("Login", key="btn_login"):
+            try:
+                res = sb().auth.sign_in_with_password({"email": email, "password": pw})
+                if res.session is None or res.user is None:
+                    st.error(
+                        "Login fehlgeschlagen: Keine Session erhalten.\n"
+                        "Mögliche Ursache: Email noch nicht bestätigt "
+                        "oder Auth-Service nicht korrekt konfiguriert."
+                    )
+                    st.stop()
+                st.session_state["sb_session"] = res.session
+                st.session_state["sb_user"] = res.user
+                st.rerun()
+            except Exception as e:
+                st.error(f"Login fehlgeschlagen: {e}")
+
+    with tab_signup:
+        email = st.text_input("Email", key="signup_email")
+        pw = st.text_input("Passwort", type="password", key="signup_pw")
+        if st.button("Account erstellen", key="btn_signup"):
+            try:
+                sb().auth.sign_up({"email": email, "password": pw})
+                st.success("Account erstellt. Bitte jetzt einloggen.")
+            except Exception as e:
+                st.error(f"Registrierung fehlgeschlagen: {e}")
+
+    st.stop()
+
+def logout_ui():
+    u = st.session_state.get("sb_user")
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        if st.button("Logout", key="btn_logout"):
+            try:
+                sb().auth.sign_out()
+            except Exception:
+                pass
+            st.session_state["sb_session"] = None
+            st.session_state["sb_user"] = None
+            st.rerun()
+    with col2:
+        if u:
+            st.caption(f"Eingeloggt als: {u.email}")
+
+def _sb_headers_user():
+    """Headers für Supabase REST-Aufrufe im Kontext des eingeloggten Users."""
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        raise RuntimeError("SUPABASE_URL / SUPABASE_ANON_KEY fehlt in den Env Vars")
+
+    sess = st.session_state.get("sb_session")
+    if not sess or not getattr(sess, "access_token", None):
+        raise RuntimeError("Kein eingeloggter User / kein Access Token vorhanden")
+
     return {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {sess.access_token}",
         "Content-Type": "application/json",
     }
 
@@ -55,27 +127,19 @@ def image_for_ui(original_path: str) -> str:
     webp = p.with_suffix(".webp")
     return str(webp if webp.exists() else p)
 
-def load_besitz_from_supabase():
+def load_besitz_from_supabase(user_id: str):
+    """Lädt die besessenen Karten-IDs des eingeloggten Users aus der Tabelle user_cards."""
     try:
         url = f"{SUPABASE_URL}/rest/v1/user_cards"
-        params = {"select": "user,karte_id"}
-        r = requests.get(url, headers=_sb_headers(), params=params, timeout=30)
+        params = {"select": "karte_id", "user": f"eq.{user_id}"}
+        r = requests.get(url, headers=_sb_headers_user(), params=params, timeout=30)
         r.raise_for_status()
-
-        rows = r.json()
-        if not rows:
-            return ["andi"], {"andi": []}
-
-        besitz = defaultdict(list)
-        for row in rows:
-            besitz[row["user"]].append(row["karte_id"])
-
-        users = sorted(besitz.keys())
-        return users, dict(besitz)
-
+        rows = r.json() or []
+        return [row["karte_id"] for row in rows if "karte_id" in row]
     except Exception as e:
         st.warning(f"Fehler beim Laden aus Supabase: {e}")
-        return ["andi"], {"andi": []}
+        return []
+
 
 def save_besitz_change_to_supabase(user: str, karte_id: str, add: bool) -> None:
     """
@@ -89,7 +153,7 @@ def save_besitz_change_to_supabase(user: str, karte_id: str, add: bool) -> None:
         # on_conflict sorgt dafür, dass du keine Duplikate bekommst (PK user+karte_id)
         r = requests.post(
             base,
-            headers=_sb_headers(),
+            headers=_sb_headers_user(),
             params={"on_conflict": "user,karte_id"},
             json=payload,
             timeout=15,
@@ -98,11 +162,49 @@ def save_besitz_change_to_supabase(user: str, karte_id: str, add: bool) -> None:
     else:
         r = requests.delete(
             base,
-            headers=_sb_headers(),
+            headers=_sb_headers_user(),
             params={"user": f"eq.{user}", "karte_id": f"eq.{karte_id}"},
             timeout=15,
         )
         r.raise_for_status()
+
+
+def load_or_create_user_plan(user_id: str) -> str:
+    """
+    Lädt den Plan (basic/pro) aus public.user_profile für den eingeloggten User.
+    Legt bei Bedarf einen basic-Eintrag an (RLS erlaubt insert own).
+    """
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/user_profile"
+        params = {"select": "plan", "user_id": f"eq.{user_id}", "limit": "1"}
+        r = requests.get(url, headers=_sb_headers_user(), params=params, timeout=15)
+        r.raise_for_status()
+        data = r.json() or []
+        if data:
+            plan = (data[0].get("plan") or "basic").lower()
+            return plan
+
+        # kein Profil vorhanden -> anlegen
+        payload = [{"user_id": user_id, "plan": "basic"}]
+        r2 = requests.post(url, headers=_sb_headers_user(), json=payload, timeout=15)
+        r2.raise_for_status()
+        return "basic"
+    except Exception as e:
+        # Fallback: App soll nicht kaputt gehen
+        st.warning(f"Konnte Plan nicht laden/initialisieren (fallback=basic): {e}")
+        return "basic"
+
+
+def render_plan_sidebar(plan: str) -> None:
+    """Zeigt Plan-Status + Upgrade Button (Placeholder, bis Stripe integriert ist)."""
+    st.sidebar.markdown(f"**Plan:** `{plan.upper()}`")
+    if plan != "pro":
+        st.sidebar.caption("Du bist aktuell **Basic** User. Für Pro-Features bitte upgraden.")
+        if st.sidebar.button("Upgrade to Pro", key="btn_upgrade_pro"):
+            st.sidebar.info("Upgrade wird vorbereitet (Stripe kommt als nächstes).")
+    else:
+        st.sidebar.success("Du bist als **Pro** User eingeloggt.")
+
 
 # Filter zurücksetzen bei Benutzerwechsel
 def reset_filter_session_state(df):
@@ -216,19 +318,20 @@ st.markdown("""
 
 
 # Session State Initialisierung
-if "users" not in st.session_state or "besitz" not in st.session_state:
-    users, besitz = load_besitz_from_supabase()
-    st.session_state["users"] = users
-    st.session_state["besitz"] = besitz
+auth_gate()  # muss davor stehen
+logout_ui()
 
-if "selected_user" not in st.session_state:
-    st.session_state["selected_user"] = ""
+sb_user = st.session_state.get("sb_user")
+if sb_user is None:
+    st.stop()  # zur Sicherheit, falls auth_gate aus irgendeinem Grund nicht gestoppt hat
 
-if "adding_user" not in st.session_state:
-    st.session_state["adding_user"] = False
+user = sb_user.id
+# Plan (basic/pro) laden – fallback ist basic, damit die App nicht blockiert
+plan = load_or_create_user_plan(user)
+st.session_state["plan"] = plan
 
-if "last_user" not in st.session_state:
-    st.session_state["last_user"] = st.session_state["selected_user"]
+if "besitz" not in st.session_state:
+    st.session_state["besitz"] = load_besitz_from_supabase(user)
 
 # Daten einlesen
 try:
@@ -258,47 +361,11 @@ except FileNotFoundError:
 original_df = df.copy()
 df["karte_id"] = df["set_name"].astype(str) + "_" + df["card_number"].astype(str)
 
-# Benutzerverwaltung
+# Benutzer
 st.sidebar.subheader("👤 Benutzer")
-user_options = [""] + st.session_state["users"] + ["➕ Neuen Benutzer anlegen..."]
-user_labels = {"": "– Kein Benutzer ausgewählt –", "➕ Neuen Benutzer anlegen...": "➕ Neuen Benutzer anlegen..."}
-
-selected = st.sidebar.selectbox(
-    "Benutzer wählen",
-    options=user_options,
-    format_func=lambda x: user_labels.get(x, x),
-    key="benutzerwahl"
-)
-
-if selected == "➕ Neuen Benutzer anlegen...":
-    st.session_state["adding_user"] = True
-    reset_filter_session_state(df)
-
-elif selected != st.session_state["selected_user"]:
-    st.session_state["selected_user"] = selected
-    reset_filter_session_state(df)
-    st.rerun()
-else:
-    st.session_state["adding_user"] = False
-
-user = st.session_state["selected_user"]
-
-if st.session_state["adding_user"]:
-    with st.sidebar:
-        new_name = st.text_input("Benutzername", key="new_user_name_input")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Erstellen"):
-                if new_name.strip() and new_name not in st.session_state["users"]:
-                    st.session_state["users"].append(new_name.strip())
-                    st.session_state["besitz"][new_name.strip()] = []
-                    st.session_state["selected_user"] = new_name.strip()
-                    st.session_state["adding_user"] = False
-                    st.rerun()
-        with col2:
-            if st.button("Abbrechen"):
-                st.session_state["adding_user"] = False
-                st.rerun()
+sb_user_sidebar = st.session_state.get("sb_user")
+st.sidebar.caption(sb_user_sidebar.email if sb_user_sidebar else "")
+render_plan_sidebar(st.session_state.get("plan", "basic"))
 
 # Besitzfilter (setzt standardmäßig auf "Alle Karten")
 if "Besitzfilter" not in st.session_state:
@@ -311,16 +378,20 @@ besitz_filter = st.sidebar.selectbox(
     key="Besitzfilter"
 )
 
-besessene_karten = set(st.session_state["besitz"].get(user, []))
+besessene_karten = set(st.session_state["besitz"])
 
 # Filter auf Bearbeitungsmodus
 if "show_buttons" not in st.session_state:
     st.session_state["show_buttons"] = False  # Standard: sichtbar
 
+is_pro = (st.session_state.get("plan", "basic") == "pro")
 st.session_state["show_buttons"] = st.sidebar.checkbox(
-    "Kollektion bearbeiten", 
-    value=st.session_state["show_buttons"]
+    "Kollektion bearbeiten",
+    value=st.session_state["show_buttons"],
+    disabled=(not is_pro),
 )
+if not is_pro:
+    st.sidebar.caption("🔒 *Kollektion bearbeiten* ist ein Pro-Feature.")
 
 # Filter anwenden auf Kopie von original_df
 df = original_df.copy()
@@ -433,7 +504,7 @@ if 'update' in df.columns and not df['update'].isnull().all():
 gefilterte_karten = df["karte_id"].unique()
 gefilterte_pokemon = df["pokemon_name"].unique()
 
-besessene_karten = set(st.session_state["besitz"].get(user, [])) if user else set()
+besessene_karten = set(st.session_state["besitz"]) if user else set()
 besessene_aus_filter = [k for k in gefilterte_karten if k in besessene_karten]
 
 # Pokémon-Namen bestimmen, die der User aus dem Filter besitzt
@@ -442,7 +513,7 @@ pokemon_mit_besitz = df[df["karte_id"].isin(besessene_aus_filter)]["pokemon_name
 karten_fortschritt = len(besessene_aus_filter) / len(gefilterte_karten) if len(gefilterte_karten) > 0 else 0
 pokemon_fortschritt = len(pokemon_mit_besitz) / len(gefilterte_pokemon) if len(gefilterte_pokemon) > 0 else 0
 
-if user and user.strip():
+if True:
 
     st.sidebar.markdown("**🃏 Karten gesammelt**")
     st.sidebar.progress(karten_fortschritt)
@@ -484,7 +555,7 @@ for pokemon_name, gruppe in df.sort_values(by=["pokemon_name", "card_number"]).g
         """
         st.markdown(card_html, unsafe_allow_html=True)
 
-        if user and user.strip() and user in st.session_state["besitz"] and st.session_state.get("show_buttons", True):
+        if st.session_state.get("show_buttons", True):
             button_id = f"btn_{karte_id}"
             button_text = "❌ Aus Kollektion entfernen" if owned else "➕ Zur Kollektion hinzufügen"
 
@@ -492,10 +563,10 @@ for pokemon_name, gruppe in df.sort_values(by=["pokemon_name", "card_number"]).g
                 try:
 
                     if owned:
-                        st.session_state["besitz"][user].remove(karte_id)
+                        st.session_state["besitz"].remove(karte_id)
                         save_besitz_change_to_supabase(user, karte_id, add=False)
                     else:
-                        st.session_state["besitz"][user].append(karte_id)
+                        st.session_state["besitz"].append(karte_id)
                         save_besitz_change_to_supabase(user, karte_id, add=True)
 
                     st.rerun()
