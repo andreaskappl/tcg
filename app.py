@@ -13,6 +13,12 @@ from pathlib import Path
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 
+st.set_page_config(
+    page_title="Pika",
+    page_icon="assets/logo.png",
+    layout="wide",
+)
+
 if "sb_session" not in st.session_state:
     st.session_state["sb_session"] = None
 if "sb_user" not in st.session_state:
