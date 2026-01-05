@@ -55,7 +55,23 @@ def auth_gate():
     with tab_signup:
         email = st.text_input("Email", key="signup_email")
         pw = st.text_input("Passwort", type="password", key="signup_pw")
+        pw2 = st.text_input("Passwort bestätigen", type="password", key="signup_pw2")
+
+        # Optional: kleine Live-Validierung (ohne Button-Klick)
+        if pw and pw2 and pw != pw2:
+            st.error("Passwörter stimmen nicht überein.")
+
         if st.button("Account erstellen", key="btn_signup"):
+            if not email:
+                st.error("Bitte Email eingeben.")
+                st.stop()
+            if not pw:
+                st.error("Bitte Passwort eingeben.")
+                st.stop()
+            if pw != pw2:
+                st.error("Passwörter stimmen nicht überein.")
+                st.stop()
+
             try:
                 sb().auth.sign_up({"email": email, "password": pw})
                 st.success("Account erstellt. Bitte jetzt einloggen.")
@@ -203,8 +219,7 @@ def render_plan_sidebar(plan: str) -> None:
         if st.sidebar.button("Upgrade to Pro", key="btn_upgrade_pro"):
             st.sidebar.info("Upgrade wird vorbereitet (Stripe kommt als nächstes).")
     else:
-        st.sidebar.success("Du bist als **Pro** User eingeloggt.")
-
+        pass
 
 # Filter zurücksetzen bei Benutzerwechsel
 def reset_filter_session_state(df):
@@ -416,7 +431,7 @@ opts = sorted(generations)
 
 # Initial-Default nur beim ersten Mal setzen
 if "multiselect_generation" not in st.session_state:
-    st.session_state["multiselect_generation"] = [g for g in opts if g in ["Karmesin & Purpur", "Mega-Entwicklungen"]]
+    st.session_state["multiselect_generation"] = []
 
 # Gespeicherten Wert an aktuelle Optionen anpassen (sonst Exception)
 st.session_state["multiselect_generation"] = [

@@ -5,15 +5,9 @@ services:
     restart: unless-stopped
     env_file:
       - ./secrets/.env
-
     environment:
       - STREAMLIT_SERVER_HEADLESS=true
       - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
-      - GOOGLE_APPLICATION_CREDENTIALS=/secrets/service-account.json
-
-    volumes:
-      - ./secrets/service-account.json:/app/service_account.json:ro
-
     networks:
       - shared-internal
 
