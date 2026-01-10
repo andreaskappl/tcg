@@ -421,12 +421,18 @@ def render_plan_sidebar(plan: str) -> None:
     if st.sidebar.button("Upgrade to Pro", key="btn_upgrade_pro"):
         try:
             checkout_url = create_stripe_checkout_url()
-            st.sidebar.success("Checkout erstellt. Bitte Zahlungsseite öffnen:")
-            # Streamlit link_button ist ideal, weil er sauber eine externe URL öffnet.
-            st.sidebar.link_button("➡️ Jetzt bezahlen", checkout_url, use_container_width=True)
-            st.sidebar.caption("Nach der Zahlung wirst du automatisch zurückgeleitet.")
+
+            # Sofortiger Redirect
+            st.markdown(
+                f"""
+                <meta http-equiv="refresh" content="0; url={checkout_url}">
+                """,
+                unsafe_allow_html=True,
+            )
+            st.stop()
+
         except Exception as e:
-            st.sidebar.error(f"Checkout konnte nicht erstellt werden: {e}")
+            st.sidebar.error(f"Checkout konnte nicht gestartet werden: {e}")
 
 
 # Filter zurücksetzen bei Benutzerwechsel
