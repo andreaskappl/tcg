@@ -9,9 +9,19 @@ import requests
 from supabase import create_client
 from collections import defaultdict
 from pathlib import Path
+from streamlit_cookies_manager import EncryptedCookieManager
+
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+
+COOKIE_SECRET = os.environ.get("COOKIE_SECRET", "")
+if not COOKIE_SECRET:
+    raise RuntimeError("COOKIE_SECRET fehlt in den Env Vars (für Login-Persistenz).")
+
+cookies = EncryptedCookieManager(prefix="pika_", password=COOKIE_SECRET)
+if not cookies.ready():
+    st.stop()
 
 st.set_page_config(
     page_title="Pika",
@@ -30,6 +40,84 @@ def sb():
     if not SUPABASE_URL or not SUPABASE_ANON_KEY:
         raise RuntimeError("SUPABASE_URL / SUPABASE_ANON_KEY fehlt in den Env Vars")
     return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+def _auth_headers(access_token: str | None = None) -> dict:
+    h = {"apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json"}
+    if access_token:
+        h["Authorization"] = f"Bearer {access_token}"
+    return h
+
+
+def refresh_session_with_token(refresh_token: str) -> dict:
+    """
+    Tauscht refresh_token -> neues access_token (und evtl. neues refresh_token).
+    """
+    url = f"{SUPABASE_URL}/auth/v1/token?grant_type=refresh_token"
+    r = requests.post(
+        url,
+        headers=_auth_headers(),
+        json={"refresh_token": refresh_token},
+        timeout=30,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+def fetch_user(access_token: str) -> dict:
+    """
+    Holt User-Objekt über Supabase Auth REST.
+    """
+    url = f"{SUPABASE_URL}/auth/v1/user"
+    r = requests.get(url, headers=_auth_headers(access_token), timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+
+def try_restore_login_from_cookie() -> bool:
+    """
+    Versucht beim App-Start automatisch einzuloggen:
+    Cookie refresh_token -> neues access_token -> user holen.
+    Speichert alles in st.session_state.
+    """
+    if try_restore_login_from_cookie():
+        return True
+
+    rt = cookies.get("refresh_token")
+    if not rt:
+        return False
+
+    try:
+        token_data = refresh_session_with_token(rt)
+        access_token = token_data.get("access_token")
+        new_refresh = token_data.get("refresh_token") or rt
+        if not access_token:
+            raise RuntimeError(f"refresh_session: kein access_token erhalten: {token_data}")
+
+        user_data = fetch_user(access_token)
+
+        # Wir speichern Session minimal (nur was wir brauchen)
+        st.session_state["sb_session"] = {
+            "access_token": access_token,
+            "refresh_token": new_refresh,
+        }
+        st.session_state["sb_user"] = {
+            "id": user_data.get("id"),
+            "email": user_data.get("email"),
+        }
+
+        # refresh_token kann rotieren -> Cookie aktualisieren
+        cookies["refresh_token"] = new_refresh
+        cookies.save()
+        return True
+    except Exception:
+        # Cookie ungültig/abgelaufen -> löschen
+        try:
+            cookies.pop("refresh_token", None)
+            cookies.save()
+        except Exception:
+            pass
+        return False
+
 
 def auth_gate():
     """Blockiert die gesamte App, bis der User eingeloggt ist."""
@@ -54,6 +142,13 @@ def auth_gate():
                     st.stop()
                 st.session_state["sb_session"] = res.session
                 st.session_state["sb_user"] = res.user
+                # refresh_token im Cookie speichern -> Login bleibt über Reloads erhalten
+                try:
+                    if res.session and getattr(res.session, "refresh_token", None):
+                        cookies["refresh_token"] = res.session.refresh_token
+                        cookies.save()
+                except Exception:
+                    pass
                 st.rerun()
             except Exception as e:
                 st.error(f"Login fehlgeschlagen: {e}")
@@ -97,10 +192,17 @@ def logout_ui():
                 pass
             st.session_state["sb_session"] = None
             st.session_state["sb_user"] = None
+            # Cookie löschen
+            try:
+                cookies.pop("refresh_token", None)
+                cookies.save()
+            except Exception:
+                pass
             st.rerun()
     with col2:
         if u:
-            st.caption(f"Eingeloggt als: {u.email}")
+            email = u.get("email") if isinstance(u, dict) else getattr(u, "email", "")
+            st.caption(f"Eingeloggt als: {email}")
 
 def _sb_headers_user():
     """Headers für Supabase REST-Aufrufe im Kontext des eingeloggten Users."""
@@ -108,12 +210,21 @@ def _sb_headers_user():
         raise RuntimeError("SUPABASE_URL / SUPABASE_ANON_KEY fehlt in den Env Vars")
 
     sess = st.session_state.get("sb_session")
-    if not sess or not getattr(sess, "access_token", None):
+    access_token = None
+
+    # Session kann bei dir entweder ein Supabase Session-Objekt sein (nach Login)
+    # oder unser dict (nach Cookie-Restore).
+    if isinstance(sess, dict):
+        access_token = sess.get("access_token")
+    else:
+        access_token = getattr(sess, "access_token", None)
+
+    if not access_token:
         raise RuntimeError("Kein eingeloggter User / kein Access Token vorhanden")
 
     return {
         "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {sess.access_token}",
+        "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json",
     }
 
@@ -427,7 +538,9 @@ df["karte_id"] = df["set_name"].astype(str) + "_" + df["card_number"].astype(str
 # Benutzer
 st.sidebar.subheader("👤 Benutzer")
 sb_user_sidebar = st.session_state.get("sb_user")
-st.sidebar.caption(sb_user_sidebar.email if sb_user_sidebar else "")
+if sb_user_sidebar:
+    email = sb_user_sidebar.get("email") if isinstance(sb_user_sidebar, dict) else getattr(sb_user_sidebar, "email", "")
+    st.sidebar.caption(email)
 render_plan_sidebar(st.session_state.get("plan", "basic"))
 
 if st.sidebar.button("Alle Filter zurücksetzen"):
