@@ -117,6 +117,21 @@ def _sb_headers_user():
         "Content-Type": "application/json",
     }
 
+def create_stripe_checkout_url() -> str:
+    """
+    Ruft Supabase Edge Function 'create-checkout-session' auf und gibt die Stripe Checkout URL zurück.
+    Nutzt den eingeloggten User (Bearer JWT) aus _sb_headers_user().
+    """
+    fn_url = f"{SUPABASE_URL}/functions/v1/create-checkout-session"
+    r = requests.post(fn_url, headers=_sb_headers_user(), json={}, timeout=30)
+    r.raise_for_status()
+    data = r.json()
+    url = data.get("url")
+    if not url:
+        raise RuntimeError(f"Keine Checkout-URL erhalten: {data}")
+    return url
+
+
 # Funktion, um lokale PNG in base64 Data-URL zu verwandeln
 @st.cache_data(show_spinner=False)
 def img_to_base64(img_path):
@@ -218,14 +233,24 @@ def load_or_create_user_plan(user_id: str) -> str:
 
 
 def render_plan_sidebar(plan: str) -> None:
-    """Zeigt Plan-Status + Upgrade Button (Placeholder, bis Stripe integriert ist)."""
+    """Zeigt Plan-Status + Upgrade via Stripe Checkout (Edge Function)."""
     st.sidebar.markdown(f"**Plan:** `{plan.upper()}`")
-    if plan != "pro":
-        st.sidebar.caption("Du bist aktuell **Basic** User. Für Pro-Features bitte upgraden.")
-        if st.sidebar.button("Upgrade to Pro", key="btn_upgrade_pro"):
-            st.sidebar.info("Upgrade wird vorbereitet (Stripe kommt als nächstes).")
-    else:
-        pass
+
+    if plan == "pro":
+        return
+
+    st.sidebar.caption("Du bist aktuell **Basic** User. Für Pro-Features bitte upgraden.")
+
+    if st.sidebar.button("Upgrade to Pro", key="btn_upgrade_pro"):
+        try:
+            checkout_url = create_stripe_checkout_url()
+            st.sidebar.success("Checkout erstellt. Bitte Zahlungsseite öffnen:")
+            # Streamlit link_button ist ideal, weil er sauber eine externe URL öffnet.
+            st.sidebar.link_button("➡️ Jetzt bezahlen", checkout_url, use_container_width=True)
+            st.sidebar.caption("Nach der Zahlung wirst du automatisch zurückgeleitet.")
+        except Exception as e:
+            st.sidebar.error(f"Checkout konnte nicht erstellt werden: {e}")
+
 
 # Filter zurücksetzen bei Benutzerwechsel
 def reset_filter_session_state(df):
@@ -350,6 +375,23 @@ user = sb_user.id
 # Plan (basic/pro) laden – fallback ist basic, damit die App nicht blockiert
 plan = load_or_create_user_plan(user)
 st.session_state["plan"] = plan
+
+# --- Stripe Redirect Handling ---
+# Stripe success_url / cancel_url setzt ?stripe=success oder ?stripe=cancel
+stripe_state = st.query_params.get("stripe")
+
+if stripe_state == "success":
+    st.success("✅ Zahlung erfolgreich! Pro wird aktiviert …")
+    # Plan neu laden (Webhook hat plan=pro gesetzt; falls minimal verzögert, hilft rerun)
+    st.session_state["plan"] = load_or_create_user_plan(user)
+    st.query_params.clear()
+    st.rerun()
+
+elif stripe_state == "cancel":
+    st.info("Zahlung abgebrochen.")
+    st.query_params.clear()
+    st.rerun()
+
 
 if "besitz" not in st.session_state:
     st.session_state["besitz"] = load_besitz_from_supabase(user)
