@@ -10,6 +10,7 @@ from supabase import create_client
 from collections import defaultdict
 from pathlib import Path
 from streamlit_cookies_manager import EncryptedCookieManager
+import time
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
@@ -360,12 +361,27 @@ def save_besitz_change_to_supabase(user: str, karte_id: str, add: bool) -> None:
     if add:
         payload = [{"user": user, "karte_id": karte_id}]
         # on_conflict sorgt dafür, dass du keine Duplikate bekommst (PK user+karte_id)
-        r = _sb_request("POST", base, params={"on_conflict": "user,karte_id"}, json=payload)
+        headers = _sb_headers_user() | {"Prefer": "resolution=merge-duplicates"}
+        r = _sb_request("POST", base, headers=headers, params={"on_conflict": "user,karte_id"}, json=payload)
         r.raise_for_status()
     else:
         r = _sb_request("DELETE", base, params={"user": f"eq.{user}", "karte_id": f"eq.{karte_id}"})
         r.raise_for_status()
 
+def wait_for_pro_plan(user_id: str, timeout_sec: int = 10, interval_sec: float = 1.0) -> str:
+    """
+    Pollt die DB, bis plan == 'pro' oder Timeout erreicht ist.
+    """
+    deadline = time.time() + timeout_sec
+    last_plan = None
+
+    while time.time() < deadline:
+        last_plan = load_or_create_user_plan(user_id)
+        if last_plan == "pro":
+            return "pro"
+        time.sleep(interval_sec)
+
+    return last_plan or "basic"
 
 def load_or_create_user_plan(user_id: str) -> str:
     """
@@ -543,8 +559,11 @@ stripe_state = st.query_params.get("stripe")
 
 if stripe_state == "success":
     st.success("✅ Zahlung erfolgreich! Pro wird aktiviert …")
-    # Plan neu laden (Webhook hat plan=pro gesetzt; falls minimal verzögert, hilft rerun)
-    st.session_state["plan"] = load_or_create_user_plan(user)
+
+    with st.spinner("Aktiviere Pro-Features …"):
+        final_plan = wait_for_pro_plan(user)
+
+    st.session_state["plan"] = final_plan
     st.query_params.clear()
     st.rerun()
 
