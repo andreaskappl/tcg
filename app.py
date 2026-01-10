@@ -11,7 +11,6 @@ from collections import defaultdict
 from pathlib import Path
 from streamlit_cookies_manager import EncryptedCookieManager
 
-
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 
@@ -61,6 +60,68 @@ def refresh_session_with_token(refresh_token: str) -> dict:
     )
     r.raise_for_status()
     return r.json()
+
+def silent_refresh() -> bool:
+    """
+    Erneuert das access_token mit dem refresh_token (ohne dass der User was merkt).
+    Returns True, wenn erfolgreich erneuert.
+    """
+    sess = st.session_state.get("sb_session") or {}
+    rt = None
+
+    # Session kann dict (Cookie-Restore) oder Supabase Session Objekt (nach Login) sein
+    if isinstance(sess, dict):
+        rt = sess.get("refresh_token")
+    else:
+        rt = getattr(sess, "refresh_token", None)
+
+    if not rt:
+        # Fallback: Cookie
+        rt = cookies.get("refresh_token")
+
+    if not rt:
+        return False
+
+    try:
+        token_data = refresh_session_with_token(rt)
+        access_token = token_data.get("access_token")
+        new_refresh = token_data.get("refresh_token") or rt
+        if not access_token:
+            return False
+
+        # Session-State aktualisieren (wir arbeiten hier bewusst mit dict)
+        st.session_state["sb_session"] = {
+            "access_token": access_token,
+            "refresh_token": new_refresh,
+        }
+
+        # refresh_token kann rotieren -> Cookie aktualisieren
+        cookies["refresh_token"] = new_refresh
+        cookies.save()
+        return True
+    except Exception:
+        return False
+
+def _sb_request(method: str, url: str, *, headers: dict | None = None, **kwargs) -> requests.Response:
+    """
+    Wrapper für Supabase REST/Functions Calls:
+    - macht den Request
+    - wenn 401: versucht silent_refresh() und wiederholt den Request genau 1x
+    """
+    if headers is None:
+        headers = _sb_headers_user()
+
+    r = requests.request(method, url, headers=headers, timeout=30, **kwargs)
+
+    if r.status_code != 401:
+        return r
+
+    # 401 => access_token abgelaufen? -> refresh -> retry einmal
+    if silent_refresh():
+        headers2 = _sb_headers_user()
+        return requests.request(method, url, headers=headers2, timeout=30, **kwargs)
+
+    return r
 
 
 def fetch_user(access_token: str) -> dict:
@@ -234,7 +295,7 @@ def create_stripe_checkout_url() -> str:
     Nutzt den eingeloggten User (Bearer JWT) aus _sb_headers_user().
     """
     fn_url = f"{SUPABASE_URL}/functions/v1/create-checkout-session"
-    r = requests.post(fn_url, headers=_sb_headers_user(), json={}, timeout=30)
+    r = _sb_request("POST", fn_url, json={})
     r.raise_for_status()
     data = r.json()
     url = data.get("url")
@@ -280,7 +341,7 @@ def load_besitz_from_supabase(user_id: str):
     try:
         url = f"{SUPABASE_URL}/rest/v1/user_cards"
         params = {"select": "karte_id", "user": f"eq.{user_id}"}
-        r = requests.get(url, headers=_sb_headers_user(), params=params, timeout=30)
+        r = _sb_request("GET", url, params=params)
         r.raise_for_status()
         rows = r.json() or []
         return [row["karte_id"] for row in rows if "karte_id" in row]
@@ -299,21 +360,10 @@ def save_besitz_change_to_supabase(user: str, karte_id: str, add: bool) -> None:
     if add:
         payload = [{"user": user, "karte_id": karte_id}]
         # on_conflict sorgt dafür, dass du keine Duplikate bekommst (PK user+karte_id)
-        r = requests.post(
-            base,
-            headers=_sb_headers_user(),
-            params={"on_conflict": "user,karte_id"},
-            json=payload,
-            timeout=15,
-        )
+        r = _sb_request("POST", base, params={"on_conflict": "user,karte_id"}, json=payload)
         r.raise_for_status()
     else:
-        r = requests.delete(
-            base,
-            headers=_sb_headers_user(),
-            params={"user": f"eq.{user}", "karte_id": f"eq.{karte_id}"},
-            timeout=15,
-        )
+        r = _sb_request("DELETE", base, params={"user": f"eq.{user}", "karte_id": f"eq.{karte_id}"})
         r.raise_for_status()
 
 
@@ -325,7 +375,7 @@ def load_or_create_user_plan(user_id: str) -> str:
     try:
         url = f"{SUPABASE_URL}/rest/v1/user_profile"
         params = {"select": "plan", "user_id": f"eq.{user_id}", "limit": "1"}
-        r = requests.get(url, headers=_sb_headers_user(), params=params, timeout=15)
+        r = _sb_request("GET", url, params=params)
         r.raise_for_status()
         data = r.json() or []
         if data:
@@ -334,7 +384,7 @@ def load_or_create_user_plan(user_id: str) -> str:
 
         # kein Profil vorhanden -> anlegen
         payload = [{"user_id": user_id, "plan": "basic"}]
-        r2 = requests.post(url, headers=_sb_headers_user(), json=payload, timeout=15)
+        r2 = _sb_request("POST", url, json=payload)
         r2.raise_for_status()
         return "basic"
     except Exception as e:
