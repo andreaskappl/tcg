@@ -79,7 +79,8 @@ def try_restore_login_from_cookie() -> bool:
     Cookie refresh_token -> neues access_token -> user holen.
     Speichert alles in st.session_state.
     """
-    if try_restore_login_from_cookie():
+    # Wenn schon eingeloggt, fertig
+    if st.session_state.get("sb_session") and st.session_state.get("sb_user"):
         return True
 
     rt = cookies.get("refresh_token")
@@ -95,7 +96,6 @@ def try_restore_login_from_cookie() -> bool:
 
         user_data = fetch_user(access_token)
 
-        # Wir speichern Session minimal (nur was wir brauchen)
         st.session_state["sb_session"] = {
             "access_token": access_token,
             "refresh_token": new_refresh,
@@ -105,12 +105,11 @@ def try_restore_login_from_cookie() -> bool:
             "email": user_data.get("email"),
         }
 
-        # refresh_token kann rotieren -> Cookie aktualisieren
         cookies["refresh_token"] = new_refresh
         cookies.save()
         return True
+
     except Exception:
-        # Cookie ungültig/abgelaufen -> löschen
         try:
             cookies.pop("refresh_token", None)
             cookies.save()
@@ -121,7 +120,8 @@ def try_restore_login_from_cookie() -> bool:
 
 def auth_gate():
     """Blockiert die gesamte App, bis der User eingeloggt ist."""
-    if st.session_state.get("sb_session") and st.session_state.get("sb_user"):
+
+    if try_restore_login_from_cookie():
         return
 
     st.title("🔐 Bitte anmelden")
@@ -482,7 +482,7 @@ sb_user = st.session_state.get("sb_user")
 if sb_user is None:
     st.stop()  # zur Sicherheit, falls auth_gate aus irgendeinem Grund nicht gestoppt hat
 
-user = sb_user.id
+user = sb_user.get("id") if isinstance(sb_user, dict) else sb_user.id
 # Plan (basic/pro) laden – fallback ist basic, damit die App nicht blockiert
 plan = load_or_create_user_plan(user)
 st.session_state["plan"] = plan
