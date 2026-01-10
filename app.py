@@ -388,6 +388,10 @@ sb_user_sidebar = st.session_state.get("sb_user")
 st.sidebar.caption(sb_user_sidebar.email if sb_user_sidebar else "")
 render_plan_sidebar(st.session_state.get("plan", "basic"))
 
+if st.sidebar.button("Alle Filter zurücksetzen"):
+    reset_filter_session_state(original_df)
+    st.rerun()
+
 # Besitzfilter (setzt standardmäßig auf "Alle Karten")
 if "Besitzfilter" not in st.session_state:
     st.session_state["Besitzfilter"] = "Alle Karten"
