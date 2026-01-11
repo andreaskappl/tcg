@@ -290,13 +290,15 @@ def _sb_headers_user():
         "Content-Type": "application/json",
     }
 
-def create_stripe_checkout_url() -> str:
+def create_stripe_checkout_url(app_id: str = "pika", plan_key: str = "pro_lifetime") -> str:
     """
     Ruft Supabase Edge Function 'create-checkout-session' auf und gibt die Stripe Checkout URL zurück.
     Nutzt den eingeloggten User (Bearer JWT) aus _sb_headers_user().
     """
     fn_url = f"{SUPABASE_URL}/functions/v1/create-checkout-session"
-    r = _sb_request("POST", fn_url, json={})
+    payload = {"app_id": app_id, "plan_key": plan_key}
+
+    r = _sb_request("POST", fn_url, json=payload)
     r.raise_for_status()
     data = r.json()
     url = data.get("url")
@@ -413,7 +415,7 @@ def render_plan_sidebar(plan: str) -> None:
     """Zeigt Plan-Status + Upgrade via Stripe Checkout (Edge Function)."""
     st.sidebar.markdown(f"**Plan:** `{plan.upper()}`")
 
-    if plan == "pro":
+    if plan.split('_')[0] == "pro":
         return
 
     st.sidebar.caption("Du bist aktuell **Basic** User. Für Pro-Features bitte upgraden.")
@@ -639,7 +641,7 @@ besessene_karten = set(st.session_state["besitz"])
 if "show_buttons" not in st.session_state:
     st.session_state["show_buttons"] = False  # Standard: sichtbar
 
-is_pro = (st.session_state.get("plan", "basic") == "pro")
+is_pro = (st.session_state.get("plan", "basic").split("_")[0] == "pro")
 st.session_state["show_buttons"] = st.sidebar.checkbox(
     "Kollektion bearbeiten",
     value=st.session_state["show_buttons"],
