@@ -169,6 +169,8 @@ def try_restore_login_from_cookie() -> bool:
 
         cookies["refresh_token"] = new_refresh
         cookies.save()
+        st.session_state["just_logged_in"] = True
+        st.session_state["filters_restored_this_login"] = False
         return True
 
     except Exception:
@@ -211,6 +213,8 @@ def auth_gate():
                         cookies.save()
                 except Exception:
                     pass
+                st.session_state["just_logged_in"] = True
+                st.session_state["filters_restored_this_login"] = False
                 st.rerun()
             except Exception as e:
                 st.error(f"Login fehlgeschlagen: {e}")
@@ -289,6 +293,24 @@ def _sb_headers_user():
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json",
     }
+
+def save_filter_prefs_to_supabase(user_id: str, filters: dict) -> None:
+    url = f"{SUPABASE_URL}/rest/v1/user_filter_prefs"
+    payload = [{"user_id": user_id, "filters": filters}]
+    headers = _sb_headers_user() | {"Prefer": "resolution=merge-duplicates"}
+    r = _sb_request("POST", url, headers=headers, params={"on_conflict": "user_id"}, json=payload)
+    r.raise_for_status()
+
+
+def load_filter_prefs_from_supabase(user_id: str) -> dict | None:
+    url = f"{SUPABASE_URL}/rest/v1/user_filter_prefs"
+    params = {"select": "filters", "user_id": f"eq.{user_id}", "limit": "1"}
+    r = _sb_request("GET", url, params=params)
+    r.raise_for_status()
+    rows = r.json() or []
+    if not rows:
+        return None
+    return rows[0].get("filters") or {}
 
 def create_stripe_checkout_url(app_id: str = "pika", plan_key: str = "pro_lifetime") -> str:
     """
@@ -557,6 +579,24 @@ if sb_user is None:
     st.stop()  # zur Sicherheit, falls auth_gate aus irgendeinem Grund nicht gestoppt hat
 
 user = sb_user.get("id") if isinstance(sb_user, dict) else sb_user.id
+
+# Filter nur einmal pro Login wiederherstellen (C)
+if st.session_state.get("just_logged_in") and not st.session_state.get("filters_restored_this_login"):
+    saved = load_filter_prefs_from_supabase(user)
+    if saved:
+        allowed_keys = {
+            "price_min", "price_max", "id_min", "id_max",
+            "Besitzfilter", "pokemon_name",
+            "multiselect_set", "multiselect_generation", "multiselect_rarity"
+        }
+        for k, v in saved.items():
+            if k in allowed_keys:
+                st.session_state[k] = v
+
+    st.session_state["filters_restored_this_login"] = True
+    st.session_state["just_logged_in"] = False
+    st.rerun()
+
 # Plan (basic/pro) laden – fallback ist basic, damit die App nicht blockiert
 plan = load_or_create_user_plan(user)
 st.session_state["plan"] = plan
@@ -619,6 +659,25 @@ if sb_user_sidebar:
     email = sb_user_sidebar.get("email") if isinstance(sb_user_sidebar, dict) else getattr(sb_user_sidebar, "email", "")
     st.sidebar.caption(email)
 render_plan_sidebar(st.session_state.get("plan", "basic"))
+
+if st.sidebar.button("Filter speichern", key="btn_save_filters"):
+    filters_payload = {
+        "price_min": st.session_state.get("price_min"),
+        "price_max": st.session_state.get("price_max"),
+        "id_min": st.session_state.get("id_min"),
+        "id_max": st.session_state.get("id_max"),
+        "Besitzfilter": st.session_state.get("Besitzfilter"),
+        "pokemon_name": st.session_state.get("pokemon_name"),
+        "multiselect_set": st.session_state.get("multiselect_set", []),
+        "multiselect_generation": st.session_state.get("multiselect_generation", []),
+        "multiselect_rarity": st.session_state.get("multiselect_rarity", []),
+    }
+    try:
+        save_filter_prefs_to_supabase(user, filters_payload)
+        st.sidebar.success("✅ Filter gespeichert")
+    except Exception as e:
+        st.sidebar.error(f"❌ Speichern fehlgeschlagen: {e}")
+
 
 if st.sidebar.button("Alle Filter zurücksetzen"):
     reset_filter_session_state(original_df)
@@ -701,13 +760,20 @@ if opts:
 #     if selected_generation:
 #         df = df[df["generation"].isin(selected_generation)]
 
-sets = df["set_name"].dropna().unique()
-selected_set = st.sidebar.multiselect("Set auswählen", sorted(sets), key="multiselect_set")
+sets = sorted(df["set_name"].dropna().unique().tolist())
+if "multiselect_set" not in st.session_state:
+    st.session_state["multiselect_set"] = []
+st.session_state["multiselect_set"] = [s for s in st.session_state["multiselect_set"] if s in sets]
+selected_set = st.sidebar.multiselect("Set auswählen", sets, key="multiselect_set")
 if selected_set:
     df = df[df["set_name"].isin(selected_set)]
 
-rarities = df["rarity"].dropna().unique()
-selected_rarities = st.sidebar.multiselect("Seltenheiten auswählen", sorted(rarities), key="multiselect_rarity")
+rarities = sorted(df["rarity"].dropna().unique().tolist())
+if "multiselect_rarity" not in st.session_state:
+    st.session_state["multiselect_rarity"] = []
+st.session_state["multiselect_rarity"] = [r for r in st.session_state["multiselect_rarity"] if r in rarities]
+
+selected_rarities = st.sidebar.multiselect("Seltenheiten auswählen", rarities, key="multiselect_rarity")
 if selected_rarities:
     df = df[df["rarity"].isin(selected_rarities)]
 
@@ -805,8 +871,8 @@ for pokemon_name, gruppe in df.sort_values(by=["pokemon_name", "card_number"]).g
             <div class="card-text">
                 <b>{row['pokemon_name']}</b><br>
                 <i>{row['set_name']} #{card_number_str}/{set_size_str}</i><br>
-                💰 <b>{price_str}€</b><span> (vom {update_str})</span><br>
-                🌟 <span>{rarity_str}</span>
+                <b>{price_str}€</b><span> (vom {update_str})</span><br>
+                <span>{rarity_str}</span>
             </div>
         </div>
         """
